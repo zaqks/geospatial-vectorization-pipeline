@@ -55,12 +55,12 @@ async def get_result(upload_uuid: str):
     # On 3rd call and beyond, return full result with status_percent = 100
     request_counter[upload_uuid] = 0
     return ResultResponse(
-        img_url="/static/giphy.gif",
+        img_url="/media/giphy.gif",
         files=[
-            ("output_1.tif", "/static/giphy.gif"),
-            ("output_2.tif", "/static/giphy.gif"),
-            ("output_3.tif", "/static/giphy.gif"),
-            ("output_4.tif", "/static/giphy.gif"),
+            ("output_1.tif", "/media/giphy.gif"),
+            ("output_2.tif", "/media/giphy.gif"),
+            ("output_3.tif", "/media/giphy.gif"),
+            ("output_4.tif", "/media/giphy.gif"),
         ],
         status_percent=100,
     )
