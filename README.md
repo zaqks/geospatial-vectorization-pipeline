@@ -1,4 +1,6 @@
 # geospatial-vectorization-pipeline
 
-jupytext --to notebook script.py
-# %%
+
+get started
+simply run docker compose up
+go to localhost:8000 to open the app
