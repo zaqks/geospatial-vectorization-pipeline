@@ -1,6 +1,7 @@
 # geospatial-vectorization-pipeline
 
+## Get Started
 
-get started
-simply run docker compose up
-go to localhost:8000 to open the app
+1. Create a `.env` file by copying `.env.example` and filling it with the right info
+2. Run `docker compose up`
+3. Go to `localhost:8000` to open the app
