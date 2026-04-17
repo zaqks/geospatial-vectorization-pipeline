@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+from .routes import router
 
 app = FastAPI(
     title="Trading API",
@@ -26,6 +27,9 @@ app.add_middleware(
 static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
+# Include routers
+app.include_router(router)
+
 
 @app.get("/")
 async def root():
@@ -42,6 +46,3 @@ async def health_check():
     Health check endpoint to verify the service is running.
     """
     return {"status": "ok", "message": "trader says hi"}
-
-
-[app.include_router(_) for _ in []]
