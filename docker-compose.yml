@@ -32,5 +32,17 @@ services:
     volumes:
       - ./services/api:/app
 
+  app:
+    build:
+      context: ./services/app
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    env_file:
+      - .env
+    volumes:
+      - ./services/app:/app
+      - /app/node_modules
+
 volumes:
   postgres_data:
