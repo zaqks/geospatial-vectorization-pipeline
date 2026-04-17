@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 from .routes import router
@@ -23,21 +22,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-app.mount("/static", StaticFiles(directory=static_path), name="static")
-
 # Include routers
 app.include_router(router)
 
 
-@app.get("/")
-async def root():
+@app.get("/media/{filename}")
+async def serve_media(filename: str):
     """
-    Serve the index.html template.
+    Serve media files from the static directory.
     """
-    template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "index.html")
-    return FileResponse(template_path)
+    media_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", filename)
+    return FileResponse(media_path)
 
 
 @app.get("/health")
