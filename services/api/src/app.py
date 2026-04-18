@@ -5,8 +5,8 @@ import os
 from .routes import router
 
 app = FastAPI(
-    title="Trading API",
-    description="API for the Trading Platform",
+    title="GeoVect API",
+    description="GeoRef + Vectorization API",
     version="1.0.0"
 )
 

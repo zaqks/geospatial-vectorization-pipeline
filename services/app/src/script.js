@@ -23,6 +23,7 @@ const lat2Input = document.getElementById("lat-2");
 const lng2Input = document.getElementById("lng-2");
 
 const statusPercent = document.getElementById("status-percent");
+const loadingBarFill = document.getElementById("loading-bar-fill");
 const resultImage = document.getElementById("result-image");
 const downloadsList = document.getElementById("downloads-list");
 const messageText = document.getElementById("message-text");
@@ -87,6 +88,14 @@ function showOnly(panel) {
 function showMessage(message) {
   messageText.textContent = message;
   showOnly(messagePanel);
+}
+
+function setProgress(percent) {
+  const safePercent = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+  statusPercent.textContent = String(safePercent);
+  if (loadingBarFill) {
+    loadingBarFill.style.width = `${safePercent}%`;
+  }
 }
 
 function clearMessage() {
@@ -167,7 +176,7 @@ async function pollOnce() {
 
     const data = await response.json();
     const percent = Number(data.status_percent ?? 0);
-    statusPercent.textContent = Number.isFinite(percent) ? String(percent) : "0";
+    setProgress(percent);
 
     if (percent >= 100 && data.img_url) {
       stopPolling();
@@ -235,7 +244,7 @@ async function handleUpload(event) {
 
     activeUuid = String(data.uuid);
     setCookie(COOKIE_NAME, activeUuid, COOKIE_MAX_AGE);
-    statusPercent.textContent = "0";
+    setProgress(0);
     startPolling();
   } catch (error) {
     setInputsDisabled(false);
@@ -253,7 +262,7 @@ function resetForNewMap() {
   clearPreview();
   downloadsList.innerHTML = "";
   resultImage.removeAttribute("src");
-  statusPercent.textContent = "0";
+  setProgress(0);
 
   setInputsDisabled(false);
   showOnly(uploadPanel);
