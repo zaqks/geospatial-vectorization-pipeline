@@ -22,6 +22,9 @@ def get_db():
 
 
 def init_db():
-    from .. import models  # noqa: F401
+    from ..client import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
+if __name__ == "__main__":
+    init_db()

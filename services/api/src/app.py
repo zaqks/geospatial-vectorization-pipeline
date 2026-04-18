@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-import os
-# from .db import init_db
-from .client.routes import router
+from .client.routes import router as client_router
+from .media.routes import router as media_router
 
 app = FastAPI(
     title="GeoVect API",
@@ -11,10 +9,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
-# @app.on_event("startup")
-# def on_startup() -> None:
-#     init_db()
 
 # CORS Middleware
 # In production, replace ["*"] with the actual frontend domain(s)
@@ -29,16 +23,8 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(router)
-
-
-@app.get("/media/{filename}")
-async def serve_media(filename: str):
-    """
-    Serve media files from the static directory.
-    """
-    media_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", filename)
-    return FileResponse(media_path)
+app.include_router(client_router)
+app.include_router(media_router)
 
 
 @app.get("/health")
@@ -46,4 +32,4 @@ async def health_check():
     """
     Health check endpoint to verify the service is running.
     """
-    return {"status": "ok", "message": "trader says hi"}
+    return {"status": "ok", "message": "wilsooonnnnnnnn"}
