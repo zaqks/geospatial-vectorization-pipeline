@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..utils._db import get_db
-from .models import Input, Output, OutputFile
 from .schemas import ProcessingResponse, ResultResponse, UploadResponse
+from .service import get_mock_result, save_mock_input
 
 router = APIRouter(prefix="/api", tags=["processing"])
 
@@ -17,16 +17,6 @@ API_URL = os.getenv("API_URL", "").rstrip("/")
 def build_media_url(path: str) -> str:
     normalized_path = path if path.startswith("/") else f"/{path}"
     return f"{API_URL}{normalized_path}" if API_URL else normalized_path
-
-HARDCODED_UUID = "550e8400-e29b-41d4-a716-446655440000"
-PROGRESS_STEP = 20
-MOCK_FILE_NAMES = [
-    "output_1.tif",
-    "output_2.tif",
-    "output_3.tif",
-    "output_4.tif",
-]
-
 
 def _parse_bounding_box(bounding_box: str):
     try:
@@ -67,27 +57,8 @@ async def upload(
     """
     lat1, lat2, lng1, lng2 = _parse_bounding_box(bounding_box)
     image_bytes = await file.read()
-
-    existing = db.get(Input, HARDCODED_UUID)
-    if existing:
-        db.query(OutputFile).filter(OutputFile.output_uuid == existing.uuid).delete()
-        db.query(Output).filter(Output.uuid == existing.uuid).delete()
-        db.delete(existing)
-        db.flush()
-
-    db_input = Input(
-        uuid=HARDCODED_UUID,
-        image=image_bytes,
-        lat1=lat1,
-        lat2=lat2,
-        lng1=lng1,
-        lng2=lng2,
-        percent_progress=0,
-    )
-    db.add(db_input)
-    db.commit()
-
-    return UploadResponse(uuid=HARDCODED_UUID)
+    upload_uuid = save_mock_input(db, image_bytes, lat1, lat2, lng1, lng2)
+    return UploadResponse(uuid=upload_uuid)
 
 
 @router.get(
@@ -100,29 +71,12 @@ async def get_result(upload_uuid: str, db: Session = Depends(get_db)):
     Returns status_percent only until processing is complete (100).
     On third call, returns full result with img_url and files.
     """
-    upload_uuid = HARDCODED_UUID
-    db_input = db.get(Input, upload_uuid)
+    db_input, db_output = get_mock_result(db, upload_uuid)
     if not db_input:
         raise HTTPException(status_code=404, detail="Upload not found")
 
     if db_input.percent_progress < 100:
-        db_input.percent_progress = min(100, db_input.percent_progress + PROGRESS_STEP)
-        db.commit()
-        db.refresh(db_input)
-
-    if db_input.percent_progress < 100:
         return ProcessingResponse(status_percent=db_input.percent_progress)
-
-    db_output = db.get(Output, upload_uuid)
-    if not db_output:
-        db_output = Output(uuid=upload_uuid, image=db_input.image)
-        db.add(db_output)
-        db.flush()
-
-        for file_name in MOCK_FILE_NAMES:
-            db.add(OutputFile(output_uuid=upload_uuid, name=file_name, file=db_input.image))
-        db.commit()
-        db.refresh(db_output)
 
     media_url = build_media_url("/media/giphy.gif")
     return ResultResponse(
