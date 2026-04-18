@@ -34,14 +34,14 @@ def _parse_bounding_box(bounding_box: str):
         raise HTTPException(status_code=400, detail="Invalid bounding_box JSON") from exc
 
     points = payload.get("points")
-    if not isinstance(points, list) or len(points) < 4:
-        raise HTTPException(status_code=400, detail="bounding_box.points must contain 4 points")
+    if not isinstance(points, list) or len(points) != 2:
+        raise HTTPException(status_code=400, detail="bounding_box.points must contain exactly 2 points")
 
     try:
         lat1 = float(points[0]["lat"])
         lng1 = float(points[0]["lng"])
-        lat2 = float(points[2]["lat"])
-        lng2 = float(points[2]["lng"])
+        lat2 = float(points[1]["lat"])
+        lng2 = float(points[1]["lng"])
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="Invalid point format in bounding_box") from exc
 
@@ -59,7 +59,9 @@ async def upload(
 
     Args:
         file: Image file
-        bounding_box: JSON string containing bounding box with 4 points (lat, lng)
+        bounding_box: JSON string containing bounding box with exactly 2 points (lat, lng)
+        example:
+            {"points":[{"lat":36.5897,"lng":2.4475},{"lat":36.5905,"lng":2.4502}]}
 
     Returns:
         UploadResponse with generated UUID
