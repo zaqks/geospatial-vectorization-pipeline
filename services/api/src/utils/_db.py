@@ -21,6 +21,6 @@ def get_db():
         db.close()
 
 if __name__ == "__main__":
-    from ..client.models import *
+    from src.client.models import *
 
     Base.metadata.create_all(bind=engine)
