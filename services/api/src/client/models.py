@@ -3,8 +3,7 @@ import uuid
 from sqlalchemy import Column, Float, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import relationship
 
-from .db import Base
-
+from ..utils._db import Base
 
 class Input(Base):
 	__tablename__ = "inputs"

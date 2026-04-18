@@ -5,7 +5,7 @@ from typing import Union
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from .db import get_db
+from ..utils._db import get_db
 from .models import Input, Output, OutputFile
 from .schemas import ProcessingResponse, ResultResponse, UploadResponse
 
