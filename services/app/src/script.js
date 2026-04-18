@@ -15,6 +15,8 @@ const submitBtn = document.getElementById("submit-btn");
 const newMapBtn = document.getElementById("new-map-btn");
 
 const fileInput = document.getElementById("map-file");
+const uploadPreviewFigure = document.getElementById("upload-preview-figure");
+const uploadPreviewImage = document.getElementById("upload-preview-image");
 const lat1Input = document.getElementById("lat-1");
 const lng1Input = document.getElementById("lng-1");
 const lat2Input = document.getElementById("lat-2");
@@ -27,6 +29,34 @@ const messageText = document.getElementById("message-text");
 
 let activeUuid = null;
 let pollTimer = null;
+let previewUrl = null;
+
+function clearPreview() {
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
+
+  uploadPreviewImage.removeAttribute("src");
+  uploadPreviewFigure.classList.add("hidden");
+}
+
+function updatePreview() {
+  clearPreview();
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    return;
+  }
+
+  const selectedFile = fileInput.files[0];
+  if (!selectedFile.type.startsWith("image/")) {
+    return;
+  }
+
+  previewUrl = URL.createObjectURL(selectedFile);
+  uploadPreviewImage.src = previewUrl;
+  uploadPreviewFigure.classList.remove("hidden");
+}
 
 function buildUrl(path) {
   if (/^https?:\/\//i.test(path)) {
@@ -220,6 +250,7 @@ function resetForNewMap() {
   clearMessage();
 
   uploadForm.reset();
+  clearPreview();
   downloadsList.innerHTML = "";
   resultImage.removeAttribute("src");
   statusPercent.textContent = "0";
@@ -236,6 +267,7 @@ function init() {
   }
 
   uploadForm.addEventListener("submit", handleUpload);
+  fileInput.addEventListener("change", updatePreview);
   newMapBtn.addEventListener("click", resetForNewMap);
 
   const rememberedUuid = getCookie(COOKIE_NAME);

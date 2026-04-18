@@ -104,6 +104,29 @@ h1 {
   margin-top: 0.85rem;
 }
 
+.upload-preview {
+  margin: 0.85rem 0 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.upload-preview img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+  background: #f2f2f2;
+}
+
+.upload-preview figcaption {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 label,
 legend {
   display: block;
