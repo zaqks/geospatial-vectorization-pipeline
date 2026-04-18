@@ -53,7 +53,7 @@ async def upload(
         bounding_box: JSON string containing bounding box with 4 points (lat, lng)
 
     Returns:
-        UploadResponse with hardcoded UUID
+        UploadResponse with generated UUID
     """
     lat1, lat2, lng1, lng2 = _parse_bounding_box(bounding_box)
     image_bytes = await file.read()
