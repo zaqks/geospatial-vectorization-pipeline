@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import os
-from .db import init_db
-from .routes import router
+# from .db import init_db
+from .client.routes import router
 
 app = FastAPI(
     title="GeoVect API",
@@ -12,9 +12,9 @@ app = FastAPI(
 )
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
+# @app.on_event("startup")
+# def on_startup() -> None:
+#     init_db()
 
 # CORS Middleware
 # In production, replace ["*"] with the actual frontend domain(s)
