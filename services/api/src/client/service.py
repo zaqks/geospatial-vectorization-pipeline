@@ -1,8 +1,9 @@
+import uuid
+
 from sqlalchemy.orm import Session
 
 from .models import Input, Output, OutputFile
 
-HARDCODED_UUID = "550e8400-e29b-41d4-a716-446655440000"
 PROGRESS_STEP = 20
 MOCK_FILE_NAMES = [
     "output_1.tif",
@@ -20,15 +21,10 @@ def save_mock_input(
     lng1: float,
     lng2: float,
 ) -> str:
-    existing = db.get(Input, HARDCODED_UUID)
-    if existing:
-        db.query(OutputFile).filter(OutputFile.output_uuid == existing.uuid).delete()
-        db.query(Output).filter(Output.uuid == existing.uuid).delete()
-        db.delete(existing)
-        db.flush()
+    upload_uuid = str(uuid.uuid4())
 
     db_input = Input(
-        uuid=HARDCODED_UUID,
+        uuid=upload_uuid,
         image=image_bytes,
         lat1=lat1,
         lat2=lat2,
@@ -39,12 +35,10 @@ def save_mock_input(
     db.add(db_input)
     db.commit()
 
-    return HARDCODED_UUID
+    return upload_uuid
 
 
 def get_mock_result(db: Session, upload_uuid: str) -> tuple[Input | None, Output | None]:
-    # Keep current mock behavior: ignore user-provided UUID and use one fixed UUID.
-    upload_uuid = HARDCODED_UUID
     db_input = db.get(Input, upload_uuid)
     if not db_input:
         return None, None
