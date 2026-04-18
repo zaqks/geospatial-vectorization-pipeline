@@ -39,5 +39,6 @@ COPY . .
 EXPOSE 8000
 
 # Make run script executable and set entrypoint
+RUN chmod +x migrate.sh
 RUN chmod +x run.sh
 CMD ["./run.sh"]
