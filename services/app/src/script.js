@@ -1,6 +1,7 @@
 const COOKIE_NAME = "upload_uuid";
 const COOKIE_MAX_AGE = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 1000;
+const THEME_STORAGE_KEY = "geovec_theme";
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
 const API_URL = String(RAW_API_URL).replace(/\/$/, "");
@@ -27,10 +28,36 @@ const loadingBarFill = document.getElementById("loading-bar-fill");
 const resultImage = document.getElementById("result-image");
 const downloadsList = document.getElementById("downloads-list");
 const messageText = document.getElementById("message-text");
+const themeToggle = document.getElementById("theme-toggle");
 
 let activeUuid = null;
 let pollTimer = null;
 let previewUrl = null;
+
+function applyTheme(theme) {
+  const normalizedTheme = theme === "dark" ? "dark" : "light";
+  document.body.dataset.theme = normalizedTheme;
+
+  if (themeToggle) {
+    themeToggle.checked = normalizedTheme === "dark";
+  }
+}
+
+function initTheme() {
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const initialTheme = storedTheme === "dark" ? "dark" : "light";
+  applyTheme(initialTheme);
+
+  if (!themeToggle) {
+    return;
+  }
+
+  themeToggle.addEventListener("change", () => {
+    const nextTheme = themeToggle.checked ? "dark" : "light";
+    applyTheme(nextTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  });
+}
 
 function clearPreview() {
   if (previewUrl) {
@@ -269,6 +296,8 @@ function resetForNewMap() {
 }
 
 function init() {
+  initTheme();
+
   if (!API_URL) {
     showMessage("Missing VITE_API_URL Vite environment variable.");
     setInputsDisabled(true);
