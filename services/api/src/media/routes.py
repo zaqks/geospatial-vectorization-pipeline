@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..client.models import OutputFile
 from ..utils._db import get_db
 
-router = APIRouter()
+router = APIRouter(tags=["Files"])
 
 
 def _as_media_response(filename: str, blob: bytes) -> Response:
