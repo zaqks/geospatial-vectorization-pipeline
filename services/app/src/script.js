@@ -2,7 +2,8 @@ const COOKIE_NAME = "upload_uuid";
 const COOKIE_MAX_AGE = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 5000;
 
-const API_URL = (import.meta.env.API_URL || "").replace(/\/$/, "");
+const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
+const API_URL = String(RAW_API_URL).replace(/\/$/, "");
 
 const uploadPanel = document.getElementById("upload-panel");
 const statusPanel = document.getElementById("status-panel");
@@ -229,7 +230,7 @@ function resetForNewMap() {
 
 function init() {
   if (!API_URL) {
-    showMessage("Missing API_URL Vite environment variable.");
+    showMessage("Missing VITE_API_URL Vite environment variable.");
     setInputsDisabled(true);
     return;
   }
