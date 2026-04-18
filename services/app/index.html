@@ -1,13 +1,85 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>app</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vectorization Pipeline</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body>
+  <div class="background-glow" aria-hidden="true"></div>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">Geo Processing</p>
+      <h1>Map Vectorization Studio</h1>
+      <p class="subtitle">Upload a map image, submit two bounding points, and track processing in real time.</p>
+    </header>
+
+    <section class="panel" id="upload-panel">
+      <h2>Upload Map</h2>
+      <form id="upload-form" novalidate>
+        <div class="field">
+          <label for="map-file">Image File</label>
+          <input id="map-file" name="file" type="file" accept="image/*" required />
+        </div>
+
+        <div class="coords-grid">
+          <fieldset>
+            <legend>Point 1</legend>
+            <label for="lat-1">Latitude</label>
+            <input id="lat-1" type="number" step="any" required />
+            <label for="lng-1">Longitude</label>
+            <input id="lng-1" type="number" step="any" required />
+          </fieldset>
+
+          <fieldset>
+            <legend>Point 2</legend>
+            <label for="lat-2">Latitude</label>
+            <input id="lat-2" type="number" step="any" required />
+            <label for="lng-2">Longitude</label>
+            <input id="lng-2" type="number" step="any" required />
+          </fieldset>
+        </div>
+
+        <button id="submit-btn" class="btn" type="submit">Start Processing</button>
+      </form>
+    </section>
+
+    <section class="panel hidden" id="status-panel" aria-live="polite">
+      <h2>Processing Status</h2>
+      <div class="status-row">
+        <div class="spinner" id="spinner" aria-hidden="true"></div>
+        <div>
+          <p class="status-label">Progress</p>
+          <p class="status-percent"><span id="status-percent">0</span>%</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="result-panel">
+      <div class="result-head">
+        <h2>Result</h2>
+        <button id="new-map-btn" class="btn secondary" type="button">New Map</button>
+      </div>
+
+      <figure class="result-figure">
+        <img id="result-image" alt="Processed map result" />
+      </figure>
+
+      <div>
+        <h3>Downloads</h3>
+        <ul id="downloads-list" class="downloads-list"></ul>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="message-panel" aria-live="assertive">
+      <p id="message-text"></p>
+    </section>
+  </main>
+
+  <script type="module" src="/src/script.js"></script>
+</body>
+
 </html>
