@@ -20,11 +20,7 @@ def get_db():
     finally:
         db.close()
 
-
-def init_db():
-    from ..client import models  # noqa: F401
+if __name__ == "__main__":
+    from ..client.models import *
 
     Base.metadata.create_all(bind=engine)
-
-if __name__ == "__main__":
-    init_db()
