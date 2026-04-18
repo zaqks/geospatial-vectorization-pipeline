@@ -8,7 +8,7 @@ class Point(BaseModel):
 
 
 class BoundingBox(BaseModel):
-    points: List[Point]  # 4 points with (lat, lng)
+    points: List[Point]  # 2 points with (lat, lng)
 
 
 class UploadResponse(BaseModel):
