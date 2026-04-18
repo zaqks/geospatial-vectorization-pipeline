@@ -1,8 +1,9 @@
 import json
 import os
 from typing import Union
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from ..utils._db import get_db
@@ -14,9 +15,17 @@ router = APIRouter(prefix="/api", tags=["processing"])
 API_URL = os.getenv("API_URL", "").rstrip("/")
 
 
-def build_media_url(path: str) -> str:
+def build_media_url(path: str, request: Request) -> str:
     normalized_path = path if path.startswith("/") else f"/{path}"
-    return f"{API_URL}{normalized_path}" if API_URL else normalized_path
+    if API_URL:
+        return f"{API_URL}{normalized_path}"
+    return f"{str(request.base_url).rstrip('/')}{normalized_path}"
+
+
+def build_upload_media_url(upload_uuid: str, filename: str, request: Request) -> str:
+    safe_uuid = quote(upload_uuid, safe="")
+    safe_filename = quote(filename, safe="")
+    return build_media_url(f"/media/{safe_uuid}/{safe_filename}", request)
 
 def _parse_bounding_box(bounding_box: str):
     try:
@@ -64,7 +73,7 @@ async def upload(
 @router.get(
     "/result/{upload_uuid}", response_model=Union[ProcessingResponse, ResultResponse]
 )
-async def get_result(upload_uuid: str, db: Session = Depends(get_db)):
+async def get_result(upload_uuid: str, request: Request, db: Session = Depends(get_db)):
     """
     Get processing result for a given UUID.
 
@@ -78,9 +87,9 @@ async def get_result(upload_uuid: str, db: Session = Depends(get_db)):
     if db_input.percent_progress < 100:
         return ProcessingResponse(status_percent=db_input.percent_progress)
 
-    media_url = build_media_url("/media/giphy.gif")
+    media_url = build_upload_media_url(upload_uuid, "giphy.gif", request)
     return ResultResponse(
         img_url=media_url,
-        files=[(f.name, media_url) for f in db_output.output_files],
+        files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in db_output.output_files],
         status_percent=100,
     )
