@@ -4,83 +4,171 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vectorization Pipeline</title>
+  <title>GeoVec - Geospatial Vectorization Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;700;800&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
-  <div class="background-glow" aria-hidden="true"></div>
-  <main class="app-shell">
-    <header class="hero">
-      <p class="eyebrow">Geo Processing</p>
-      <h1>Map Vectorization Studio</h1>
-      <p class="subtitle">Upload a map image, submit two bounding points, and track processing in real time.</p>
-    </header>
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon" aria-hidden="true">
+        <svg viewBox="0 0 18 18" fill="none">
+          <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.9" />
+          <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.5" />
+          <rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.5" />
+          <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.2" />
+        </svg>
+      </div>
+      GeoVec
+    </a>
 
-    <section class="panel" id="upload-panel">
-      <h2>Upload Map</h2>
-      <form id="upload-form" novalidate>
-        <div class="field">
-          <label for="map-file">Image File</label>
-          <input id="map-file" name="file" type="file" accept="image/*" required />
+    <ul class="nav-links">
+      <li><a href="#">Home</a></li>
+      <li><a href="#app">Studio</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="btn-ghost" type="button">Log in</button>
+      <button class="btn-primary" type="button">Get Started</button>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-left">
+        <div class="hero-tag">Geospatial Vectorization Studio</div>
+        <h1>Turn raster maps<br />into <span>vector</span><br />outputs.</h1>
+        <p>
+          Upload any map image, define two coordinate anchors, and get vectorized outputs with downloadable
+          shapefiles.
+        </p>
+        <div class="hero-ctas">
+          <button class="btn-large" type="button" onclick="document.getElementById('app').scrollIntoView({ behavior: 'smooth' })">
+            Start Vectorizing
+          </button>
+          <button class="btn-demo" type="button">
+            <span class="btn-demo-icon" aria-hidden="true">▶</span>
+            Watch a demo
+          </button>
         </div>
+      </div>
 
-        <figure id="upload-preview-figure" class="upload-preview hidden" aria-live="polite">
-          <img id="upload-preview-image" alt="Selected map preview" />
-          <figcaption>Selected image preview</figcaption>
-        </figure>
-
-        <div class="coords-grid">
-          <fieldset>
-            <legend>Point 1</legend>
-            <label for="lat-1">Latitude</label>
-            <input id="lat-1" type="number" step="any" required />
-            <label for="lng-1">Longitude</label>
-            <input id="lng-1" type="number" step="any" required />
-          </fieldset>
-
-          <fieldset>
-            <legend>Point 2</legend>
-            <label for="lat-2">Latitude</label>
-            <input id="lat-2" type="number" step="any" required />
-            <label for="lng-2">Longitude</label>
-            <input id="lng-2" type="number" step="any" required />
-          </fieldset>
-        </div>
-
-        <button id="submit-btn" class="btn" type="submit">Start Processing</button>
-      </form>
-    </section>
-
-    <section class="panel hidden" id="status-panel" aria-live="polite">
-      <h2>Processing Status</h2>
-      <div class="status-row">
-        <div class="spinner" id="spinner" aria-hidden="true"></div>
-        <div>
-          <p class="status-label">Progress</p>
-          <p class="status-percent"><span id="status-percent">0</span>%</p>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="map-preview-frame">
+          <div class="map-frame-bar">
+            <span class="dot dot-r"></span>
+            <span class="dot dot-y"></span>
+            <span class="dot dot-g"></span>
+            <span class="map-frame-title">map_preview.tif</span>
+          </div>
+          <div class="hero-noise"></div>
+          <div class="map-pin map-pin-a"></div>
+          <div class="map-pin map-pin-b"></div>
+          <div class="map-label map-label-a">Anchor A</div>
+          <div class="map-label map-label-b">Anchor B</div>
         </div>
       </div>
     </section>
 
-    <section class="panel hidden" id="result-panel">
-      <div class="result-head">
-        <h2>Result</h2>
-        <button id="new-map-btn" class="btn secondary" type="button">New Map</button>
+    <section class="app-section" id="app">
+      <div class="section-label">// Studio</div>
+      <div class="section-title">Vectorize your map</div>
+
+      <div class="app-shell">
+        <div class="app-topbar">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="app-topbar-title">geovec-studio - new session</span>
+        </div>
+
+        <div class="stage-wrap">
+          <section class="panel" id="upload-panel">
+            <div class="panel-heading">01 - Upload map image</div>
+            <form id="upload-form" novalidate>
+              <label class="upload-zone" for="map-file">
+                <input id="map-file" name="file" type="file" accept="image/*" required />
+                <div class="upload-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#3B3BFF" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <div class="upload-text"><strong>Click to upload</strong> or drag and drop</div>
+                <div class="upload-hint">GeoTIFF - PNG - JPG</div>
+              </label>
+
+              <figure id="upload-preview-figure" class="upload-preview hidden" aria-live="polite">
+                <img id="upload-preview-image" alt="Selected map preview" />
+                <figcaption>Selected image preview</figcaption>
+              </figure>
+
+              <div class="panel-heading sub">02 - Coordinate anchors</div>
+              <div class="coords-grid">
+                <fieldset>
+                  <legend>Point A</legend>
+                  <label for="lat-1">Latitude</label>
+                  <input id="lat-1" type="number" step="any" required />
+                  <label for="lng-1">Longitude</label>
+                  <input id="lng-1" type="number" step="any" required />
+                </fieldset>
+
+                <fieldset>
+                  <legend>Point B</legend>
+                  <label for="lat-2">Latitude</label>
+                  <input id="lat-2" type="number" step="any" required />
+                  <label for="lng-2">Longitude</label>
+                  <input id="lng-2" type="number" step="any" required />
+                </fieldset>
+              </div>
+
+              <button id="submit-btn" class="run-btn" type="submit">Run Vectorization</button>
+            </form>
+          </section>
+
+          <section class="panel hidden" id="status-panel" aria-live="polite">
+            <div class="panel-heading">Processing map</div>
+            <div class="status-row">
+              <div class="spinner" id="spinner" aria-hidden="true"></div>
+              <div>
+                <p class="status-label">Progress</p>
+                <p class="status-percent"><span id="status-percent">0</span>%</p>
+              </div>
+            </div>
+            <div class="loading-bar-track" aria-hidden="true">
+              <div class="loading-bar-fill" id="loading-bar-fill"></div>
+            </div>
+          </section>
+
+          <section class="panel hidden" id="result-panel">
+            <div class="result-head">
+              <h2>Result</h2>
+              <button id="new-map-btn" class="download-all-btn" type="button">New Map</button>
+            </div>
+
+            <figure class="result-figure">
+              <img id="result-image" alt="Processed map result" />
+            </figure>
+
+            <div class="shapefiles-header">
+              <div class="panel-heading">Downloads</div>
+            </div>
+            <ul id="downloads-list" class="downloads-list"></ul>
+          </section>
+
+          <section class="panel hidden" id="message-panel" aria-live="assertive">
+            <p id="message-text"></p>
+          </section>
+        </div>
       </div>
-
-      <figure class="result-figure">
-        <img id="result-image" alt="Processed map result" />
-      </figure>
-
-      <div>
-        <h3>Downloads</h3>
-        <ul id="downloads-list" class="downloads-list"></ul>
-      </div>
-    </section>
-
-    <section class="panel hidden" id="message-panel" aria-live="assertive">
-      <p id="message-text"></p>
     </section>
   </main>
 
