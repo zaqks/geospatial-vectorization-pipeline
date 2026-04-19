@@ -1,5 +1,9 @@
 # geospatial-vectorization-pipeline
 
+<img src="./docs/screen.png" width=100%>
+
+
+
 ## Get Started
 
 1. Create a `.env` file by copying `.env.example` and filling it with the right info
