@@ -1,27 +1,17 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 import rasterio
-from rasterio.features import shapes
+from rasterio.features import shapes, rasterize
+from rasterio.transform import Affine
 
 import geopandas as gpd
 from shapely.geometry import shape
-from shapely.ops import unary_union
-from shapely.validation import make_valid
-
-from PIL import Image, ImageDraw
-
-
-# In[2]:
-
 
 # -------------------------
 # CONFIG
@@ -30,12 +20,7 @@ raster_path = "data/el_harrach_georef.tif"
 output_dir = "output/vect/poly"
 os.makedirs(output_dir, exist_ok=True)
 
-tolerance = 1
-EXPORT_TO_WGS84 = True 
-
-
-# In[3]:
-
+EXPORT_TO_WGS84 = True
 
 # -------------------------
 # LEGEND
@@ -43,146 +28,120 @@ EXPORT_TO_WGS84 = True
 df = pd.read_csv("data/legend_class_geo.csv")
 df = df[df.geometry == "polygon"]
 
-def hex_to_rgb(hex_color: str):
-    hex_color = hex_color.lstrip("#")
-    return (int(hex_color[0:2], 16),
-            int(hex_color[2:4], 16),
-            int(hex_color[4:6], 16))
+def hex_to_rgb(h):
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
 
-color_class_map = {
+rgb_to_class = {
     hex_to_rgb(row["hex"]): row["class"]
     for _, row in df.iterrows()
 }
 
-print(f"Loaded {len(color_class_map)} classes")
-
-
-# In[4]:
-
+print(f"Loaded {len(rgb_to_class)} classes")
 
 # -------------------------
 # READ RASTER
 # -------------------------
 with rasterio.open(raster_path) as src:
-    img_data = src.read()
+    img = src.read()[:3]
     transform = src.transform
     crs = src.crs
-    # Prepare inverse transform for PNG drawing
-    inv_transform = ~transform 
+    meta = src.meta.copy()
 
-# Prepare image for PIL (H, W, C)
-img_np = np.transpose(img_data, (1, 2, 0))[:, :, :3].astype(np.uint8)
+img = np.transpose(img, (1, 2, 0)).astype(np.uint8)
+h, w, _ = img.shape
 
-print("\nRaster info:")
-print("Shape:", img_np.shape)
-print("CRS:", crs)
-
-
-# In[5]:
-
+print("Raster shape:", img.shape)
 
 # -------------------------
-# HELPERS
+# ENCODE RGB -> INT LABEL
 # -------------------------
-def explode_geom(geom):
-    """Handle all geometry types safely"""
-    if geom is None or geom.is_empty:
-        return []
-    if geom.geom_type == "Polygon":
-        return [geom]
-    if geom.geom_type == "MultiPolygon":
-        return list(geom.geoms)
-    if geom.geom_type == "GeometryCollection":
-        out = []
-        for g in geom.geoms:
-            out.extend(explode_geom(g))
-        return out
-    return []
+flat = img.reshape(-1, 3)
 
+rgb_int = (
+    flat[:, 0].astype(np.int32) << 16 |
+    flat[:, 1].astype(np.int32) << 8 |
+    flat[:, 2].astype(np.int32)
+)
 
-# In[6]:
+class_map = {
+    (r << 16 | g << 8 | b): i
+    for i, ((r, g, b), _) in enumerate(rgb_to_class.items())
+}
 
+classes = list(rgb_to_class.values())
+
+label = np.full(rgb_int.shape, -1, dtype=np.int32)
+
+for rgb_key, idx in class_map.items():
+    label[rgb_int == rgb_key] = idx
+
+label = label.reshape(h, w)
+
+print(f"Classes found: {len(classes)}")
 
 # -------------------------
-# PROCESS EACH CLASS
+# VECTORIZE ONCE
 # -------------------------
-for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
+print("Vectorizing raster...")
 
-    print(f"\nProcessing Class: {class_name} | RGB: {rgb}")
+results = {c: [] for c in classes}
 
-    target = np.array(rgb, dtype=np.int16)
-    mask = np.all(np.abs(img_np.astype(np.int16) - target) <= tolerance, axis=2)
-
-    if not np.any(mask):
-        print("⚠️ Empty mask → skipping")
+for geom, val in shapes(label, mask=label != -1, transform=transform):
+    val = int(val)
+    if val == -1:
         continue
+    results[classes[val]].append(shape(geom))
 
-    mask_uint8 = mask.astype(np.uint8)
+# -------------------------
+# EXPORT GEOJSONS
+# -------------------------
+print("Exporting GeoJSONs...")
 
-    # VECTORIZE (Results are in Map Coordinates)
-    geoms = []
-    for geom, val in shapes(mask_uint8, mask=mask_uint8, transform=transform):
-        if val == 1:
-            g = shape(geom)
-            if not g.is_empty:
-                geoms.append(g)
-
+for class_name, geoms in tqdm(results.items()):
     if not geoms:
         continue
 
-    # CLEAN GEOMETRIES
-    cleaned = []
-    for g in geoms:
-        if not g.is_valid:
-            g = make_valid(g)
-        cleaned.extend(explode_geom(g))
-
-    # MERGE & SAVE GEOJSON
-    merged = unary_union(cleaned)
-    gdf = gpd.GeoDataFrame(geometry=[merged], crs=crs)
+    gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
     gdf["class"] = class_name
 
     if EXPORT_TO_WGS84:
         gdf = gdf.to_crs("EPSG:4326")
 
-    geojson_path = os.path.join(output_dir, f"{class_name}.geojson")
-    gdf.to_file(geojson_path, driver="GeoJSON")
+    out_path = os.path.join(output_dir, f"{class_name}.geojson")
+    gdf.to_file(out_path, driver="GeoJSON")
 
-    # -------------------------
-    # PNG OVERLAY (FIXED COORDINATES)
-    # -------------------------
-    # Create RGBA overlay from the original image
-    overlay = Image.fromarray(img_np).convert("RGBA")
-    draw = ImageDraw.Draw(overlay)
+# -------------------------
+# FAST PNG RASTER OVERLAYS (FIXED APPROACH)
+# -------------------------
+print("Creating per-class PNG overlays (rasterized)...")
 
-    fill_color = (255, 0, 0, 120)  # Semi-transparent red
-    outline_color = (255, 0, 0, 255)
+base_img = img  # already numpy RGB
 
-    for g in cleaned:
-        for poly in explode_geom(g):
-            try:
-                # Convert Map Coords (East/North) back to Pixel Coords (Col/Row)
-                pixel_coords = [inv_transform * pt for pt in poly.exterior.coords]
+for class_name, geoms in tqdm(results.items()):
+    if not geoms:
+        continue
 
-                if len(pixel_coords) >= 3:
-                    draw.polygon(pixel_coords, fill=fill_color, outline=outline_color)
+    # rasterize polygons directly into image grid
+    mask = rasterize(
+        [(geom, 1) for geom in geoms],
+        out_shape=(h, w),
+        transform=transform,
+        fill=0,
+        dtype=np.uint8
+    )
 
-                # Draw holes
-                for interior in poly.interiors:
-                    hole_coords = [inv_transform * pt for pt in interior.coords]
-                    if len(hole_coords) >= 3:
-                        draw.polygon(hole_coords, outline=outline_color)
-            except Exception:
-                continue
+    # build red overlay
+    overlay = np.zeros_like(base_img)
+    overlay[mask == 1] = [255, 0, 0]
 
-    png_path = os.path.join(output_dir, f"{class_name}.png")
-    overlay.save(png_path)
+    # blend (numpy, fast)
+    alpha = 0.4
+    final = (base_img * (1 - alpha) + overlay * alpha).astype(np.uint8)
 
-print("\n✅ DONE: GeoJSONs and PNGs generated correctly.")
+    out_png = os.path.join(output_dir, f"{class_name}.png")
 
+    from PIL import Image
+    Image.fromarray(final).save(out_png)
 
-# In[ ]:
-
-
-
-
+print("\n✅ DONE — vector + raster pipeline complete")
