@@ -10,16 +10,23 @@ from tqdm import tqdm
 from skimage.morphology import skeletonize
 from shapely.geometry import LineString
 import networkx as nx
+from rasterio.features import rasterize
+from PIL import Image
 
 # -------------------------
 # CONFIG
 # -------------------------
 raster_path = "data/el_harrach_georef.tif"
 output_dir = "output/vect/line"
+
 os.makedirs(output_dir, exist_ok=True)
 
 COLOR_TOLERANCE = 1
 EXPORT_TO_WGS84 = True
+
+# SAME DIRECTORY FOR EVERYTHING
+geojson_dir = output_dir
+debug_dir = output_dir
 
 # -------------------------
 # LEGEND
@@ -49,10 +56,9 @@ with rasterio.open(raster_path) as src:
     img = src.read()
     transform = src.transform
     crs = src.crs
+    h, w = src.height, src.width
 
 img_np = np.transpose(img, (1, 2, 0))[:, :, :3].astype(np.int16)
-
-h, w = img_np.shape[:2]
 
 print("Raster loaded:", img_np.shape)
 
@@ -75,18 +81,13 @@ def skeleton_to_lines_graph(skel):
                 G.add_edge((x, y), (nx_, ny))
 
     lines = []
-
     for comp in nx.connected_components(G):
         sub = G.subgraph(comp)
-
-        # no filtering anymore
-
         start = list(sub.nodes())[0]
         path = list(nx.dfs_preorder_nodes(sub, start))
 
         if len(path) >= 2:
-            line = LineString(path)
-            lines.append(line)
+            lines.append(LineString(path))
 
     return lines
 
@@ -97,38 +98,56 @@ for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
 
     target = np.array(rgb, dtype=np.int16)
 
-    # 1. MASK
+    # MASK
     mask = np.all(np.abs(img_np - target) <= COLOR_TOLERANCE, axis=2)
-
     if not np.any(mask):
         continue
 
-    # 2. SKELETON
+    # SKELETON
     skel = skeletonize(mask > 0)
 
-    # 3. VECTORIZE
+    # VECTORIZE
     pixel_lines = skeleton_to_lines_graph(skel)
-
     if not pixel_lines:
         continue
 
-    # 4. PIXEL → GEO
+    # PIXEL → GEO
     geo_lines = []
     for line in pixel_lines:
         coords = [transform * (x, y) for x, y in line.coords]
         if len(coords) >= 2:
             geo_lines.append(LineString(coords))
 
-    # 5. EXPORT GEOJSON
     gdf = gpd.GeoDataFrame(geometry=geo_lines, crs=crs)
     gdf["class"] = class_name
 
     if EXPORT_TO_WGS84:
         gdf = gdf.to_crs("EPSG:4326")
 
-    out_path = os.path.join(output_dir, f"{class_name}.geojson")
-    gdf.to_file(out_path, driver="GeoJSON")
+    # SAVE GEOJSON (same folder as images)
+    out_geojson = os.path.join(geojson_dir, f"{class_name}.geojson")
+    gdf.to_file(out_geojson, driver="GeoJSON")
+
+    # -------------------------
+    # DEBUG PLOT (RED ON BLACK)
+    # -------------------------
+    gdf_for_raster = gdf.to_crs(crs)
+
+    if not gdf_for_raster.empty:
+        mask_raster = rasterize(
+            [(geom, 1) for geom in gdf_for_raster.geometry],
+            out_shape=(h, w),
+            transform=transform,
+            fill=0,
+            dtype=np.uint8
+        )
+
+        out_img = np.zeros((h, w, 3), dtype=np.uint8)  # black background
+        out_img[mask_raster == 1] = (255, 0, 0)        # red lines
+
+        out_png = os.path.join(debug_dir, f"{class_name}.png")
+        Image.fromarray(out_img).save(out_png)
 
     print(f"Saved: {class_name}")
 
-print("\n✅ DONE — vector lines generated without noise filtering")
+print("DONE — GeoJSON + red-on-black debug images saved in same directory")
