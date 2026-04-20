@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 import rasterio
 import geopandas as gpd
-from shapely.geometry import shape
+from shapely.geometry import shape, LineString
 from rasterio.features import shapes, rasterize
-from skimage.morphology import skeletonize, remove_small_objects
+from skimage.morphology import skeletonize
 from PIL import Image
+from scipy.spatial import KDTree
 
 # -------------------------
 # CONFIG
@@ -17,92 +18,154 @@ output_dir = "output/vect/railway"
 os.makedirs(output_dir, exist_ok=True)
 
 TARGET_CLASS = "railway"
-COLOR_TOLERANCE = 1
-BRIDGE_RADIUS = 20 #15
-MIN_OBJECT_SIZE_M2 = 750 #500
-SIMPLIFY_TOLERANCE = 0.3 #0.1
+COLOR_TOLERANCE = 3
+BRIDGE_RADIUS = 25
+NOISE_RADIUS = 2
+MIN_LINE_LENGTH_M = 1
+SIMPLIFY_TOLERANCE = 0.1
 EXPORT_TO_WGS84 = True
+ENDPOINT_SEARCH_RADIUS_M = 30
 
 # -------------------------
-# DATA LOADING
+# LOAD LEGEND
 # -------------------------
 df = pd.read_csv("data/legend_class_geo.csv")
-rail_row = df[df["class"] == TARGET_CLASS].iloc[0]
+rail_row = df.loc[df["class"] == TARGET_CLASS].iloc[0]
 
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
+def hex_to_rgb(h):
+    h = h.lstrip("#")
+    return np.array([int(h[i:i+2], 16) for i in (0, 2, 4)], dtype=np.uint8)
 
 rgb_val = hex_to_rgb(rail_row["hex"])
-lower_b = np.array([max(0, c - COLOR_TOLERANCE) for c in rgb_val], dtype=np.uint8)
-upper_b = np.array([min(255, c + COLOR_TOLERANCE) for c in rgb_val], dtype=np.uint8)
+lower_b = np.clip(rgb_val - COLOR_TOLERANCE, 0, 255)
+upper_b = np.clip(rgb_val + COLOR_TOLERANCE, 0, 255)
 
+# -------------------------
+# LOAD RASTER
+# -------------------------
 with rasterio.open(raster_path) as src:
-    # Read only RGB bands and use a more memory-efficient layout
     img = src.read((1, 2, 3))
     transform = src.transform
     crs = src.crs
     h, w = src.height, src.width
-    pixel_area = abs(transform[0] * transform[4]) 
-    min_object_pixels = int(MIN_OBJECT_SIZE_M2 / pixel_area)
 
-# Convert to HWC for OpenCV (use moveaxis to avoid unnecessary copies where possible)
-img_np = np.moveaxis(img, 0, -1)
+img = np.moveaxis(img, 0, -1)
 
 # -------------------------
-# OPTIMIZED PROCESSING
+# MASK
 # -------------------------
+mask = cv2.inRange(img, lower_b, upper_b)
+if not mask.any():
+    print("No railway pixels found.")
+    exit()
 
-# 1. Fast Masking using OpenCV
-mask = cv2.inRange(img_np, lower_b, upper_b)
+# -------------------------
+# MORPHOLOGY (faster kernels reused)
+# -------------------------
+open_kernel = cv2.getStructuringElement(
+    cv2.MORPH_ELLIPSE, (NOISE_RADIUS*2+1, NOISE_RADIUS*2+1)
+)
+close_kernel = cv2.getStructuringElement(
+    cv2.MORPH_ELLIPSE, (BRIDGE_RADIUS, BRIDGE_RADIUS)
+)
 
-if np.any(mask):
-    # 2. Fast Gap Bridging using OpenCV Morphology
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (BRIDGE_RADIUS * 2 + 1, BRIDGE_RADIUS * 2 + 1))
-    continuous_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    
-    # 3. Clean Noise
-    if min_object_pixels > 0:
-        continuous_mask = remove_small_objects(continuous_mask.astype(bool), min_size=min_object_pixels)
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_kernel)
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, close_kernel)
 
-    # 4. Skeletonize (Scikit-image is efficient here)
-    skeleton = skeletonize(continuous_mask).astype(np.uint8)
+# -------------------------
+# SKELETON
+# -------------------------
+skeleton = skeletonize(mask > 0).astype(np.uint8)
 
-    # 5. Fast Vectorization
-    # Using a list comprehension directly into GeoDataFrame
-    results = shapes(skeleton, mask=skeleton > 0, transform=transform)
-    
-    line_geoms = []
-    for s, v in results:
-        poly_shape = shape(s)
-        if poly_shape.geom_type == 'Polygon':
-            line_geoms.append(poly_shape.exterior)
-        elif poly_shape.geom_type == 'MultiPolygon':
-            for part in poly_shape.geoms:
-                line_geoms.append(part.exterior)
+# -------------------------
+# VECTORIZE LINES (FAST PATH)
+# -------------------------
+lines = []
 
-    if line_geoms:
-        gdf = gpd.GeoDataFrame({'geometry': line_geoms}, crs=crs)
-        gdf['geometry'] = gdf.simplify(tolerance=SIMPLIFY_TOLERANCE, preserve_topology=True)
-        gdf["class"] = TARGET_CLASS
+for geom, val in shapes(skeleton, mask=skeleton, transform=transform):
+    g = shape(geom)
+    if g.geom_type == "LineString":
+        lines.append(g)
+    elif g.geom_type == "MultiLineString":
+        lines.extend(g.geoms)
+    elif g.geom_type in ("Polygon", "MultiPolygon"):
+        lines.append(g.exterior)
 
-        if EXPORT_TO_WGS84:
-            gdf = gdf.to_crs("EPSG:4326")
+# -------------------------
+# ENDPOINT DETECTION (NUMPY FAST)
+# -------------------------
+kernel = np.array([[1,1,1],
+                   [1,0,1],
+                   [1,1,1]], dtype=np.uint8)
 
-        out_geojson = os.path.join(output_dir, f"{TARGET_CLASS}.geojson")
-        gdf.to_file(out_geojson, driver="GeoJSON")
+neighbors = cv2.filter2D(skeleton, -1, kernel)
+endpoints = np.argwhere((skeleton == 1) & (neighbors == 1))
 
-        # 6. PNG DEBUG PLOT
-        gdf_for_raster = gdf.to_crs(crs)
-        debug_mask = rasterize(
-            [(geom, 1) for geom in gdf_for_raster.geometry],
-            out_shape=(h, w), transform=transform, fill=0, dtype=np.uint8
-        )
-        
-        out_img = np.zeros((h, w, 3), dtype=np.uint8)
-        out_img[debug_mask == 1] = (255, 0, 0) 
-        Image.fromarray(out_img).save(os.path.join(output_dir, f"{TARGET_CLASS}_debug.png"))
+# -------------------------
+# VECTORIZED PIXEL → COORDINATES (MAJOR SPEEDUP)
+# -------------------------
+if len(endpoints) > 0:
+    rows, cols = endpoints[:, 0], endpoints[:, 1]
+    xs, ys = rasterio.transform.xy(transform, rows, cols)
+    end_xy = np.column_stack([xs, ys])
 
-        print(f"SUCCESS: {TARGET_CLASS} lines generated.")
-else:
-    print("Error: No pixels found for the railway color.")
+    # -------------------------
+    # KDTree CONNECTIONS
+    # -------------------------
+    if len(end_xy) > 1:
+        tree = KDTree(end_xy)
+        pairs = tree.query_pairs(r=ENDPOINT_SEARCH_RADIUS_M)
+
+        used = set()
+        for i, j in pairs:
+            if i in used or j in used:
+                continue
+            lines.append(LineString([end_xy[i], end_xy[j]]))
+            used.add(i)
+            used.add(j)
+
+# -------------------------
+# BUILD GEO DATAFRAME
+# -------------------------
+gdf = gpd.GeoDataFrame({"geometry": lines}, crs=crs)
+
+if gdf.empty:
+    print("No valid geometries.")
+    exit()
+
+gdf["length_m"] = gdf.length
+gdf = gdf[gdf["length_m"] >= MIN_LINE_LENGTH_M]
+
+gdf["geometry"] = gdf.geometry.simplify(SIMPLIFY_TOLERANCE, preserve_topology=True)
+gdf["class"] = TARGET_CLASS
+
+if EXPORT_TO_WGS84:
+    gdf = gdf.to_crs("EPSG:4326")
+
+# -------------------------
+# EXPORT
+# -------------------------
+out_geojson = os.path.join(output_dir, f"{TARGET_CLASS}.geojson")
+gdf.to_file(out_geojson, driver="GeoJSON")
+
+# -------------------------
+# DEBUG IMAGE (FASTER RASTERIZE)
+# -------------------------
+gdf_r = gdf.to_crs(crs)
+
+debug_mask = rasterize(
+    [(geom, 1) for geom in gdf_r.geometry],
+    out_shape=(h, w),
+    transform=transform,
+    fill=0,
+    dtype=np.uint8
+)
+
+out_img = np.zeros((h, w, 3), dtype=np.uint8)
+out_img[debug_mask == 1] = (255, 0, 0)
+
+Image.fromarray(out_img).save(
+    os.path.join(output_dir, f"{TARGET_CLASS}_debug.png")
+)
+
+print(f"SUCCESS: {len(gdf)} railway segments generated.")
