@@ -13,8 +13,8 @@ df.head()
 
 # In[3]:
 
-
-get_ipython().system('mkdir -p output/overlays/poly')
+import os
+os.makedirs("output/overlays/poly", exist_ok=True)
 
 
 # In[4]:
