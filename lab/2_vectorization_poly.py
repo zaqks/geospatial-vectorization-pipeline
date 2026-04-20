@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
 import os
 import numpy as np
 import pandas as pd
@@ -13,7 +19,10 @@ from shapely.validation import make_valid
 
 from PIL import Image, ImageDraw
 
-# %%
+
+# In[2]:
+
+
 # -------------------------
 # CONFIG
 # -------------------------
@@ -24,7 +33,10 @@ os.makedirs(output_dir, exist_ok=True)
 tolerance = 1
 EXPORT_TO_WGS84 = True 
 
-# %%
+
+# In[3]:
+
+
 # -------------------------
 # LEGEND
 # -------------------------
@@ -44,7 +56,10 @@ color_class_map = {
 
 print(f"Loaded {len(color_class_map)} classes")
 
-# %%
+
+# In[4]:
+
+
 # -------------------------
 # READ RASTER
 # -------------------------
@@ -62,7 +77,10 @@ print("\nRaster info:")
 print("Shape:", img_np.shape)
 print("CRS:", crs)
 
-# %%
+
+# In[5]:
+
+
 # -------------------------
 # HELPERS
 # -------------------------
@@ -81,7 +99,10 @@ def explode_geom(geom):
         return out
     return []
 
-# %%
+
+# In[6]:
+
+
 # -------------------------
 # PROCESS EACH CLASS
 # -------------------------
@@ -142,10 +163,10 @@ for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
             try:
                 # Convert Map Coords (East/North) back to Pixel Coords (Col/Row)
                 pixel_coords = [inv_transform * pt for pt in poly.exterior.coords]
-                
+
                 if len(pixel_coords) >= 3:
                     draw.polygon(pixel_coords, fill=fill_color, outline=outline_color)
-                
+
                 # Draw holes
                 for interior in poly.interiors:
                     hole_coords = [inv_transform * pt for pt in interior.coords]
@@ -158,3 +179,10 @@ for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
     overlay.save(png_path)
 
 print("\n✅ DONE: GeoJSONs and PNGs generated correctly.")
+
+
+# In[ ]:
+
+
+
+
