@@ -11,7 +11,7 @@ from PIL import Image
 import rasterio
 
 # -------------------------
-# CONFIG
+# CONFIG (PROJECTED CRS ONLY)
 # -------------------------
 input_geojson = "output/clean/poly/water_cleaned.geojson"
 output_geojson = "output/gapfill/water.geojson"
@@ -19,15 +19,13 @@ output_mask = "output/gapfill/water_filled.png"
 
 reference_raster = "data/el_harrach_georef.tif"
 
-BUFFER_DIST_PROJECTED = 2        # meters
-BUFFER_DIST_GEO = 0.00001        # degrees
-SIMPLIFY_PROJECTED = 0.5
-SIMPLIFY_GEO = 0.000005
+BUFFER_DIST = 20        # meters
+SIMPLIFY_TOL = 0.5     # meters
 
 os.makedirs(os.path.dirname(output_geojson), exist_ok=True)
 
 # -------------------------
-# LOAD GEOJSON
+# LOAD VECTOR
 # -------------------------
 gdf = gpd.read_file(input_geojson)
 
@@ -53,46 +51,40 @@ print("Bounds:", raster_bounds)
 print("Shape:", (h, w))
 
 # -------------------------
-# REPROJECT IF NEEDED
+# FORCE CRS ALIGNMENT
 # -------------------------
+if gdf.crs is None:
+    raise ValueError("❌ Input GeoJSON has no CRS")
+
 if gdf.crs != raster_crs:
-    print("\n⚠️ CRS mismatch → reprojecting vector to raster CRS")
+    print("\n⚠️ Reprojecting vector to raster CRS...")
     gdf = gdf.to_crs(raster_crs)
 
-print("\n--- AFTER CRS ALIGNMENT ---")
-print("Vector CRS:", gdf.crs)
-print("Vector bounds:", gdf.total_bounds)
+print("\n--- AFTER REPROJECTION ---")
+print("CRS:", gdf.crs)
+print("Bounds:", gdf.total_bounds)
 
 # -------------------------
-# CHECK OVERLAP
+# OVERLAP CHECK
 # -------------------------
 vxmin, vymin, vxmax, vymax = gdf.total_bounds
 rxmin, rymin, rxmax, rymax = raster_bounds
 
-overlap = not (vxmax < rxmin or vxmin > rxmax or vymax < rymin or vymin > rymax)
+overlap = not (
+    vxmax < rxmin or vxmin > rxmax or
+    vymax < rymin or vymin > rymax
+)
 
 print("\n--- OVERLAP CHECK ---")
 print("Overlap:", overlap)
 
 if not overlap:
-    raise ValueError("❌ Vector and raster DO NOT overlap → mask will be empty")
+    raise ValueError("❌ Vector and raster do NOT overlap")
 
 # -------------------------
 # MERGE + FILL GAPS
 # -------------------------
 merged = unary_union(gdf.geometry)
-
-# choose correct buffer depending on CRS
-if gdf.crs.is_geographic:
-    BUFFER_DIST = BUFFER_DIST_GEO
-    SIMPLIFY_TOL = SIMPLIFY_GEO
-    print("\nUsing geographic units (degrees)")
-else:
-    BUFFER_DIST = BUFFER_DIST_PROJECTED
-    SIMPLIFY_TOL = SIMPLIFY_PROJECTED
-    print("\nUsing projected units (meters)")
-
-print(f"Buffer distance: {BUFFER_DIST}")
 
 filled = merged.buffer(BUFFER_DIST).buffer(-BUFFER_DIST)
 
@@ -111,13 +103,16 @@ def remove_holes(geom):
 
 filled = remove_holes(filled)
 
+if filled.is_empty:
+    raise ValueError("❌ Geometry empty after hole removal")
+
 # -------------------------
 # SIMPLIFY
 # -------------------------
 filled = filled.simplify(SIMPLIFY_TOL)
 
 if filled.is_empty:
-    raise ValueError("❌ Geometry became empty after simplify")
+    raise ValueError("❌ Geometry empty after simplify")
 
 # -------------------------
 # SAVE GEOJSON
@@ -126,7 +121,8 @@ out_gdf = gpd.GeoDataFrame(geometry=[filled], crs=gdf.crs)
 out_gdf["class"] = "water"
 
 out_gdf.to_file(output_geojson, driver="GeoJSON")
-print(f"\n✅ Saved filled GeoJSON: {output_geojson}")
+
+print(f"\n✅ Saved GeoJSON: {output_geojson}")
 
 # -------------------------
 # RASTERIZE
@@ -141,18 +137,18 @@ mask = rasterize(
     dtype=np.uint8
 )
 
-print("Mask sum (should be >0):", mask.sum())
+print("Mask sum (should be > 0):", int(mask.sum()))
 
 if mask.sum() == 0:
-    raise ValueError("❌ Mask is empty → something still wrong")
+    raise ValueError("❌ Empty mask → geometry not aligned with raster")
 
 # -------------------------
-# RED MASK PNG
+# EXPORT MASK (RED)
 # -------------------------
 out = np.zeros((h, w, 3), dtype=np.uint8)
 out[mask == 1] = [255, 0, 0]
 
 Image.fromarray(out).save(output_mask)
 
-print(f"✅ Saved mask PNG: {output_mask}")
-print("\n🎯 Done successfully\n")
+print(f"✅ Saved mask: {output_mask}")
+print("\n🎯 Done successfully")
