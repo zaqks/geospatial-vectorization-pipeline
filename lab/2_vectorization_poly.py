@@ -8,10 +8,11 @@ from tqdm import tqdm
 
 import rasterio
 from rasterio.features import shapes, rasterize
-from rasterio.transform import Affine
 
 import geopandas as gpd
 from shapely.geometry import shape
+
+from PIL import Image
 
 # -------------------------
 # CONFIG
@@ -37,7 +38,12 @@ rgb_to_class = {
     for _, row in df.iterrows()
 }
 
-print(f"Loaded {len(rgb_to_class)} classes")
+classes = list(rgb_to_class.values())
+
+class_map = {
+    (r << 16 | g << 8 | b): i
+    for i, ((r, g, b), _) in enumerate(rgb_to_class.items())
+}
 
 # -------------------------
 # READ RASTER
@@ -46,15 +52,12 @@ with rasterio.open(raster_path) as src:
     img = src.read()[:3]
     transform = src.transform
     crs = src.crs
-    meta = src.meta.copy()
 
 img = np.transpose(img, (1, 2, 0)).astype(np.uint8)
 h, w, _ = img.shape
 
-print("Raster shape:", img.shape)
-
 # -------------------------
-# ENCODE RGB -> INT LABEL
+# ENCODE RGB -> CLASS INDEX
 # -------------------------
 flat = img.reshape(-1, 3)
 
@@ -64,13 +67,6 @@ rgb_int = (
     flat[:, 2].astype(np.int32)
 )
 
-class_map = {
-    (r << 16 | g << 8 | b): i
-    for i, ((r, g, b), _) in enumerate(rgb_to_class.items())
-}
-
-classes = list(rgb_to_class.values())
-
 label = np.full(rgb_int.shape, -1, dtype=np.int32)
 
 for rgb_key, idx in class_map.items():
@@ -78,13 +74,9 @@ for rgb_key, idx in class_map.items():
 
 label = label.reshape(h, w)
 
-print(f"Classes found: {len(classes)}")
-
 # -------------------------
-# VECTORIZE ONCE
+# VECTORIZE
 # -------------------------
-print("Vectorizing raster...")
-
 results = {c: [] for c in classes}
 
 for geom, val in shapes(label, mask=label != -1, transform=transform):
@@ -96,8 +88,6 @@ for geom, val in shapes(label, mask=label != -1, transform=transform):
 # -------------------------
 # EXPORT GEOJSONS
 # -------------------------
-print("Exporting GeoJSONs...")
-
 for class_name, geoms in tqdm(results.items()):
     if not geoms:
         continue
@@ -108,21 +98,15 @@ for class_name, geoms in tqdm(results.items()):
     if EXPORT_TO_WGS84:
         gdf = gdf.to_crs("EPSG:4326")
 
-    out_path = os.path.join(output_dir, f"{class_name}.geojson")
-    gdf.to_file(out_path, driver="GeoJSON")
+    gdf.to_file(os.path.join(output_dir, f"{class_name}.geojson"), driver="GeoJSON")
 
 # -------------------------
-# FAST PNG RASTER OVERLAYS (FIXED APPROACH)
+# SIMPLE RED MASK PNG (NO ALPHA, NO BLENDING)
 # -------------------------
-print("Creating per-class PNG overlays (rasterized)...")
-
-base_img = img  # already numpy RGB
-
 for class_name, geoms in tqdm(results.items()):
     if not geoms:
         continue
 
-    # rasterize polygons directly into image grid
     mask = rasterize(
         [(geom, 1) for geom in geoms],
         out_shape=(h, w),
@@ -131,17 +115,9 @@ for class_name, geoms in tqdm(results.items()):
         dtype=np.uint8
     )
 
-    # build red overlay
-    overlay = np.zeros_like(base_img)
-    overlay[mask == 1] = [255, 0, 0]
+    out = np.zeros((h, w, 3), dtype=np.uint8)
+    out[mask == 1] = [255, 0, 0]
 
-    # blend (numpy, fast)
-    alpha = 0.4
-    final = (base_img * (1 - alpha) + overlay * alpha).astype(np.uint8)
-
-    out_png = os.path.join(output_dir, f"{class_name}.png")
-
-    from PIL import Image
-    Image.fromarray(final).save(out_png)
-
-print("\n✅ DONE — vector + raster pipeline complete")
+    Image.fromarray(out).save(
+        os.path.join(output_dir, f"{class_name}.png")
+    )
