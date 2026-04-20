@@ -27,7 +27,7 @@ EXPORT_TO_WGS84 = True
 # LEGEND & UTILS
 # -------------------------
 df = pd.read_csv("data/legend_class_geo.csv")
-df = df[df["geometry"] == "line"]
+df = df[(df["geometry"] == "line") & (df["class"] != "railway")]
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
