@@ -22,6 +22,7 @@ cycler==0.12.1
 debugpy==1.8.20
 decorator==5.2.1
 defusedxml==0.7.1
+entrypoints==0.4
 executing==2.2.1
 fastjsonschema==2.21.2
 fiona==1.10.1
@@ -80,6 +81,7 @@ osmnx==2.1.0
 packaging==26.0
 pandas==3.0.2
 pandocfilters==1.5.1
+papermill==2.7.0
 parso==0.8.6
 pexpect==4.9.0
 pillow==12.2.0
@@ -117,6 +119,7 @@ six==1.17.0
 soupsieve==2.8.3
 stack-data==0.6.3
 staticmap==0.5.7
+tenacity==9.1.4
 terminado==0.18.1
 threadpoolctl==3.6.0
 tifffile==2026.4.11
