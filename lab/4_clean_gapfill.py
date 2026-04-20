@@ -14,7 +14,7 @@ import rasterio
 # CONFIG (PROJECTED CRS ONLY)
 # -------------------------
 input_geojson = "output/clean/poly/water_cleaned.geojson"
-output_geojson = "output/clean/poly/water_clean.geojson"
+output_geojson = "output/clean/poly/water_cleaned.geojson"
 output_mask = "output/clean/poly/water.png"
 
 reference_raster = "data/el_harrach_georef.tif"

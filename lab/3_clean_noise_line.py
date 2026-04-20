@@ -1,176 +1,119 @@
 import os
 import numpy as np
-import geopandas as gpd
+import pandas as pd
 import rasterio
-from shapely.ops import unary_union, linemerge
-from shapely.geometry import LineString, MultiLineString
-from rasterio.features import rasterize
+import geopandas as gpd
+from tqdm import tqdm
+from shapely.geometry import shape, LineString
+from rasterio.features import shapes, rasterize
+from skimage.morphology import closing, disk, skeletonize, remove_small_objects, dilation
 from PIL import Image
 
 # -------------------------
 # CONFIG
 # -------------------------
-input_geojson = "output/vect/line/railway.geojson"
 raster_path = "data/el_harrach_georef.tif"
-output_dir = "output/clean/line"
-
+output_dir = "output/vect/railway"
 os.makedirs(output_dir, exist_ok=True)
 
-SNAP_TOLERANCE = 2.0
-SIMPLIFY_TOLERANCE = 0.3
-MIN_LINE_LENGTH = 5  # meters (EPSG:3857)
+TARGET_CLASS = "railway"
+COLOR_TOLERANCE = 5 
+
+# GAP BRIDGING: Increase this radius if the dots are far apart
+# This connects dots within ~10-15 pixels of each other
+BRIDGE_RADIUS = 7 
+
+MIN_OBJECT_SIZE_M2 = 300 
+SIMPLIFY_TOLERANCE = 0.5 
 EXPORT_TO_WGS84 = True
 
-DEBUG = True
+# -------------------------
+# DATA LOADING
+# -------------------------
+df = pd.read_csv("data/legend_class_geo.csv")
+# Filter specifically for railway
+rail_row = df[df["class"] == TARGET_CLASS].iloc[0]
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip("#")
+    return (int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16))
+
+target_rgb = np.array(hex_to_rgb(rail_row["hex"]), dtype=np.int16)
+
+with rasterio.open(raster_path) as src:
+    img = src.read()
+    transform = src.transform
+    crs = src.crs
+    h, w = src.height, src.width
+    pixel_area = abs(transform[0] * transform[4]) 
+    min_object_pixels = int(MIN_OBJECT_SIZE_M2 / pixel_area)
+
+img_np = np.transpose(img, (1, 2, 0))[:, :, :3].astype(np.int16)
 
 # -------------------------
-# LOAD VECTOR DATA
+# PROCESSING
 # -------------------------
-gdf = gpd.read_file(input_geojson)
 
-if gdf.empty:
-    raise ValueError("❌ Input GeoJSON is empty")
+# 1. Create Initial Mask
+mask = np.all(np.abs(img_np - target_rgb) <= COLOR_TOLERANCE, axis=2)
 
-if gdf.crs is None:
-    raise ValueError("❌ CRS is None. Cannot continue safely.")
+if np.any(mask):
+    # 2. BRIDGE THE GAPS
+    # We use a large closing to turn dots into a continuous "sausage" shape
+    continuous_mask = closing(mask, disk(BRIDGE_RADIUS))
+    
+    # 3. Clean noise
+    if min_object_pixels > 0:
+        continuous_mask = remove_small_objects(continuous_mask, min_size=min_object_pixels)
 
-if DEBUG:
-    print(f"[DEBUG] Loaded features: {len(gdf)}")
-    print(f"[DEBUG] Original CRS: {gdf.crs}")
+    # 4. SKELETONIZE
+    # This turns the "sausage" back into a 1-pixel wide centerline
+    skeleton = skeletonize(continuous_mask).astype(np.uint8)
 
-# -------------------------
-# CONVERT TO METRIC CRS
-# -------------------------
-gdf = gdf.to_crs("EPSG:3857")
-
-if DEBUG:
-    print("[DEBUG] Reprojected to EPSG:3857")
-
-# -------------------------
-# CLEAN GEOMETRIES
-# -------------------------
-geoms = [g for g in gdf.geometry if g is not None]
-
-if not geoms:
-    raise ValueError("❌ No valid geometries found")
-
-dissolved = unary_union(geoms)
-
-if DEBUG:
-    print(f"[DEBUG] Dissolved type: {dissolved.geom_type}")
-
-# -------------------------
-# EXTRACT LINES
-# -------------------------
-lines = []
-
-if dissolved.geom_type == "LineString":
-    lines = [dissolved]
-
-elif dissolved.geom_type == "MultiLineString":
-    lines = list(dissolved.geoms)
-
-elif dissolved.geom_type in ["Polygon", "MultiPolygon"]:
-    polys = [dissolved] if dissolved.geom_type == "Polygon" else dissolved.geoms
-    for p in polys:
-        lines.append(p.exterior)
-
-else:
-    raise ValueError(f"Unsupported geometry type: {dissolved.geom_type}")
-
-# -------------------------
-# MERGE LINES
-# -------------------------
-merged = linemerge(unary_union(lines))
-
-if isinstance(merged, LineString):
-    final_lines = [merged]
-elif isinstance(merged, MultiLineString):
-    final_lines = list(merged.geoms)
-else:
-    final_lines = []
-
-if DEBUG:
-    print(f"[DEBUG] Final merged lines: {len(final_lines)}")
-
-# -------------------------
-# BUILD GEO DATAFRAME
-# -------------------------
-gdf_out = gpd.GeoDataFrame(geometry=final_lines, crs="EPSG:3857")
-
-# simplify
-gdf_out["geometry"] = gdf_out.geometry.simplify(
-    SIMPLIFY_TOLERANCE,
-    preserve_topology=True
-)
-
-# filter short lines
-before = len(gdf_out)
-gdf_out = gdf_out[gdf_out.length > MIN_LINE_LENGTH]
-after = len(gdf_out)
-
-if DEBUG:
-    print(f"[DEBUG] Filtered: {before} → {after}")
-
-if gdf_out.empty:
-    raise ValueError("❌ All geometries removed. Lower MIN_LINE_LENGTH.")
-
-# -------------------------
-# SAVE GEOJSON
-# -------------------------
-class_name = os.path.splitext(os.path.basename(input_geojson))[0]
-
-out_geojson = os.path.join(output_dir, f"{class_name}.geojson")
-
-gdf_save = gdf_out.to_crs("EPSG:4326") if EXPORT_TO_WGS84 else gdf_out
-gdf_save.to_file(out_geojson, driver="GeoJSON")
-
-print(f"\n✅ Saved GeoJSON: {out_geojson}")
-
-# -------------------------
-# RASTER-ALIGNED PNG EXPORT (FIXED)
-# -------------------------
-try:
-    with rasterio.open(raster_path) as src:
-        raster_crs = src.crs
-        transform = src.transform
-        height = src.height
-        width = src.width
-
-    # reproject vector to raster CRS
-    gdf_raster = gdf_out.to_crs(raster_crs)
-
-    if DEBUG:
-        print("[DEBUG] Raster CRS:", raster_crs)
-        print("[DEBUG] Raster size:", width, height)
-
-    mask = rasterize(
-        [(geom, 1) for geom in gdf_raster.geometry if geom is not None],
-        out_shape=(height, width),
-        transform=transform,
-        fill=0,
-        dtype=np.uint8,
-        all_touched=True
+    # 5. VECTORIZE
+    # Extracting shapes from 1-pixel lines
+    results = (
+        {'properties': {'val': v}, 'geometry': s}
+        for i, (s, v) in enumerate(shapes(skeleton, mask=skeleton > 0, transform=transform))
     )
+    
+    line_geoms = []
+    for g in results:
+        poly_shape = shape(g['geometry'])
+        # The skeleton shapes often come out as thin Polygons; we take the exterior
+        if poly_shape.geom_type == 'Polygon':
+            line_geoms.append(poly_shape.exterior)
+        elif poly_shape.geom_type == 'MultiPolygon':
+            for part in poly_shape.geoms:
+                line_geoms.append(part.exterior)
 
-    if DEBUG:
-        print("[DEBUG] Non-zero pixels:", np.count_nonzero(mask))
+    if line_geoms:
+        gdf = gpd.GeoDataFrame(geometry=line_geoms, crs=crs)
+        
+        # Simplify to smooth out the "pixel steps"
+        gdf['geometry'] = gdf.simplify(tolerance=SIMPLIFY_TOLERANCE, preserve_topology=True)
+        gdf["class"] = TARGET_CLASS
 
-    if np.count_nonzero(mask) == 0:
-        print("⚠️ WARNING: Empty raster result")
+        if EXPORT_TO_WGS84:
+            gdf = gdf.to_crs("EPSG:4326")
 
-    img = np.zeros((height, width, 3), dtype=np.uint8)
-    img[mask == 1] = (255, 0, 0)
+        # Save GeoJSON
+        out_geojson = os.path.join(output_dir, f"{TARGET_CLASS}.geojson")
+        gdf.to_file(out_geojson, driver="GeoJSON")
 
-    out_png = os.path.join(output_dir, f"{class_name}.png")
-    Image.fromarray(img).save(out_png)
+        # 6. DEBUG PNG PLOT
+        # Rasterize the final lines back to an image to check connectivity
+        gdf_for_raster = gdf.to_crs(crs)
+        debug_mask = rasterize(
+            [(geom, 1) for geom in gdf_for_raster.geometry],
+            out_shape=(h, w), transform=transform, fill=0, dtype=np.uint8
+        )
+        
+        # Create a black image and paint the lines Red
+        out_img = np.zeros((h, w, 3), dtype=np.uint8)
+        out_img[debug_mask == 1] = (255, 0, 0) 
+        Image.fromarray(out_img).save(os.path.join(output_dir, f"{TARGET_CLASS}_debug.png"))
 
-    print(f"✅ Saved PNG: {out_png}")
-
-except Exception as e:
-    print(f"❌ PNG export failed: {e}")
-
-# -------------------------
-# DONE
-# -------------------------
-print("\n🎉 DONE → processing complete")
+        print(f"SUCCESS: Railway lines generated. Check {out_geojson}")
+else:
+    print("Error: No pixels found for the railway color.")
