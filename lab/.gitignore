@@ -210,3 +210,5 @@ __marimo__/
 data/
 cache/
 output/
+.ipynb_results/
+.ipynb_checkpoints/
