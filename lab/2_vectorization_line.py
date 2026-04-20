@@ -9,7 +9,6 @@ import geopandas as gpd
 from tqdm import tqdm
 from skimage.morphology import skeletonize
 from shapely.geometry import LineString
-from shapely.ops import linemerge
 import networkx as nx
 
 # -------------------------
@@ -21,7 +20,6 @@ os.makedirs(output_dir, exist_ok=True)
 
 COLOR_TOLERANCE = 1
 EXPORT_TO_WGS84 = True
-MIN_LINE_LENGTH = 5  # pixels (filter noise)
 
 # -------------------------
 # LEGEND
@@ -81,22 +79,14 @@ def skeleton_to_lines_graph(skel):
     for comp in nx.connected_components(G):
         sub = G.subgraph(comp)
 
-        if len(sub.nodes) < MIN_LINE_LENGTH:
-            continue
+        # no filtering anymore
 
-        # start point
         start = list(sub.nodes())[0]
-
         path = list(nx.dfs_preorder_nodes(sub, start))
 
         if len(path) >= 2:
             line = LineString(path)
-
-            # optional simplification (VERY useful for maps)
-            line = line.simplify(0.5, preserve_topology=True)
-
-            if line.length >= MIN_LINE_LENGTH:
-                lines.append(line)
+            lines.append(line)
 
     return lines
 
@@ -141,4 +131,4 @@ for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
 
     print(f"Saved: {class_name}")
 
-print("\n✅ DONE — clean vector lines generated")
+print("\n✅ DONE — vector lines generated without noise filtering")
