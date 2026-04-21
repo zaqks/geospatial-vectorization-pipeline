@@ -40,3 +40,15 @@ def get_mock_result(db: Session, upload_uuid: str) -> tuple[Input | None, Output
 
     db_output = db.get(Output, upload_uuid)
     return db_input, db_output
+
+
+def update_input_progress(db: Session, upload_uuid: str, percent: int) -> Input | None:
+    db_input = db.get(Input, upload_uuid)
+    if not db_input:
+        return None
+
+    clamped_percent = max(0, min(100, int(percent)))
+    db_input.percent_progress = clamped_percent
+    db.commit()
+    db.refresh(db_input)
+    return db_input
