@@ -20,7 +20,7 @@ COLOR_TOLERANCE = 1
 CLOSING_RADIUS = 1.5 
 MIN_OBJECT_SIZE_M2 = 500  # Minimum size in square meters
 MIN_LINE_LENGTH = 2   
-SIMPLIFY_TOLERANCE = 0.3 
+SIMPLIFY_TOLERANCE = 1 # 0.3
 EXPORT_TO_WGS84 = True
 
 # -------------------------

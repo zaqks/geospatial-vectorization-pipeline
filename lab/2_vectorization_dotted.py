@@ -14,7 +14,7 @@ from scipy.spatial import KDTree
 # CONFIG
 # -------------------------
 raster_path = "data/el_harrach_georef.tif"
-output_dir = "output/vect/railway"
+output_dir = "output/vect/line"
 os.makedirs(output_dir, exist_ok=True)
 
 TARGET_CLASS = "railway"
@@ -165,7 +165,7 @@ out_img = np.zeros((h, w, 3), dtype=np.uint8)
 out_img[debug_mask == 1] = (255, 0, 0)
 
 Image.fromarray(out_img).save(
-    os.path.join(output_dir, f"{TARGET_CLASS}_debug.png")
+    os.path.join(output_dir, f"{TARGET_CLASS}.png")
 )
 
 print(f"SUCCESS: {len(gdf)} railway segments generated.")
