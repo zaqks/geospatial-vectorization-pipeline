@@ -71,7 +71,7 @@ async def init_legend(params: WorkspaceParams):
 
 
 register_pipeline(
-    id="setup_workspace",
+    id="0_setup_workspace",
     description="Create /tmp/<uuid>/data and export DB input image as PNG.",
     tasks=[setup_workspace, init_legend],
     params=WorkspaceParams,

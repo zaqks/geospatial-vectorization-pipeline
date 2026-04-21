@@ -95,8 +95,8 @@ async def clean_noise_poly(params: WorkspaceParams):
             )
 
         update_input_progress(upload_uuid, 90)
-        trigger_result = tirrger_flow("clean_workspace", upload_uuid)
-        return {"uuid": upload_uuid, "next": "clean_workspace", "trigger": trigger_result}
+        trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
+        return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
     finally:
         gc.collect()
 
