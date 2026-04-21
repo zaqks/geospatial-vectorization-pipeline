@@ -13,7 +13,8 @@
 
 # from src.flows.analysis.analysis_llm import *
 # from src.flows.gen.report_generation import *
-from src.flows.workspace.workspace import *
+from src.flows.workspace.clean_workspace import *
+from src.flows.workspace.setup_workspace import *
 
 import uvicorn
 import os
