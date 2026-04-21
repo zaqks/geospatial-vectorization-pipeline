@@ -78,7 +78,7 @@ def clean_and_debug_vector(geojson_path, output_dir, min_area_m2, reference_rast
     print(f"[{base_name}] {initial_count} → {final_count} features after cleaning.")
 
     # 3. Export cleaned GeoJSON
-    clean_geojson_path = os.path.join(output_dir, f"{base_name}_cleaned.geojson")
+    clean_geojson_path = os.path.join(output_dir, f"{base_name}.geojson")
     gdf_cleaned.to_file(clean_geojson_path, driver="GeoJSON")
 
     # 4. Generate Debug PNG
@@ -115,7 +115,7 @@ from pathlib import Path
 
 if __name__ == "__main__":
     input_folder = Path("output/vect/poly")
-    output_folder = Path("output/clean/poly")
+    output_folder = Path("output/vect/poly")
     ref_raster = "data/el_harrach_georef.tif"
 
     output_folder.mkdir(parents=True, exist_ok=True)
