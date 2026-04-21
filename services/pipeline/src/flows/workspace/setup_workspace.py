@@ -1,4 +1,6 @@
 from io import BytesIO
+from pathlib import Path
+import shutil
 
 from PIL import Image, UnidentifiedImageError
 from plombery import get_logger, register_pipeline, task
@@ -7,6 +9,9 @@ from ...utils._db import SessionLocal
 from ...utils.models import Input
 from ...utils.service import update_input_progress
 from .common import WorkspaceParams, workspace_paths
+
+
+LEGEND_SOURCE_PATH = Path("/app/src/data/legend_class_geo.csv")
 
 
 @task
@@ -42,9 +47,29 @@ async def setup_workspace(params: WorkspaceParams):
     }
 
 
+@task
+async def init_legend(params: WorkspaceParams):
+    logger = get_logger()
+    upload_uuid = params.uuid
+    _, data_dir, _ = workspace_paths(upload_uuid)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    if not LEGEND_SOURCE_PATH.exists():
+        raise FileNotFoundError(f"Legend source file not found at {LEGEND_SOURCE_PATH}")
+
+    legend_target_path = data_dir / "legend_class_geo.csv"
+    shutil.copy2(LEGEND_SOURCE_PATH, legend_target_path)
+
+    logger.info("Legend initialized at %s", legend_target_path)
+    return {
+        "uuid": upload_uuid,
+        "legend_csv": str(legend_target_path),
+    }
+
+
 register_pipeline(
     id="setup_workspace",
     description="Create /tmp/<uuid>/data and export DB input image as PNG.",
-    tasks=[setup_workspace],
+    tasks=[setup_workspace, init_legend],
     params=WorkspaceParams,
 )
