@@ -23,18 +23,19 @@ def update_input_progress(upload_uuid: str, percent: int) -> Input | None:
 
 
 def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
-    origin = os.getenv("PIPELINE_URL")
-    if not origin:
-        raise ValueError("PIPELINE_URL is not set")
+    # origin = os.getenv("PIPELINE_URL")
+    # if not origin:
+    #     raise ValueError("PIPELINE_URL is not set")
 
-    response = httpx.post(
-        f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
-        json={"params": {"uuid": upload_uuid}},
-        timeout=60.0,
-    )
-    response.raise_for_status()
+    # response = httpx.post(
+    #     f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
+    #     json={"params": {"uuid": upload_uuid}},
+    #     timeout=60.0,
+    # )
+    # response.raise_for_status()
 
-    try:
-        return response.json()
-    except ValueError:
-        return {"status_code": response.status_code, "text": response.text}
+    # try:
+    #     return response.json()
+    # except ValueError:
+    #     return {"status_code": response.status_code, "text": response.text}
+    print('piew')
