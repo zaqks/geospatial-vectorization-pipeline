@@ -17,7 +17,7 @@ output_dir = "output/vect/line"
 os.makedirs(output_dir, exist_ok=True)
 
 COLOR_TOLERANCE = 1
-CLOSING_RADIUS = 1.5 
+CLOSING_RADIUS = 3 # 1.5
 MIN_OBJECT_SIZE_M2 = 500  # Minimum size in square meters
 MIN_LINE_LENGTH = 2   
 SIMPLIFY_TOLERANCE = 0.3 # 0.3
