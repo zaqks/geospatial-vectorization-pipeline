@@ -16,7 +16,7 @@ from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_GEOJSON_PATH = Path("output/vect/poly/water.geojson")
 OUTPUT_GEOJSON_PATH = Path("output/vect/poly/water.geojson")
-OUTPUT_MASK_PATH = Path("output/vect/poly/water.png")
+# OUTPUT_MASK_PATH = Path("output/vect/poly/water.png")
 REFERENCE_RASTER_PATH = Path("data/georef.tif")
 
 BUFFER_DIST = 20
@@ -38,7 +38,7 @@ async def clean_gapfill(params: WorkspaceParams):
 
     input_geojson_path = workspace_dir / INPUT_GEOJSON_PATH
     output_geojson_path = workspace_dir / OUTPUT_GEOJSON_PATH
-    output_mask_path = workspace_dir / OUTPUT_MASK_PATH
+    # output_mask_path = workspace_dir / OUTPUT_MASK_PATH
     reference_raster_path = workspace_dir / REFERENCE_RASTER_PATH
 
     def _run() -> dict:
@@ -82,19 +82,19 @@ async def clean_gapfill(params: WorkspaceParams):
         out_gdf["class"] = "water"
         out_gdf.to_file(output_geojson_path, driver="GeoJSON")
 
-        mask = rasterize(
-            [(filled, 1)],
-            out_shape=(h, w),
-            transform=transform,
-            fill=0,
-            dtype=np.uint8,
-        )
-        if mask.sum() == 0:
-            raise ValueError("Empty mask after rasterize")
-
-        out = np.zeros((h, w, 3), dtype=np.uint8)
-        out[mask == 1] = [255, 0, 0]
-        Image.fromarray(out).save(output_mask_path)
+        # mask = rasterize(
+        #     [(filled, 1)],
+        #     out_shape=(h, w),
+        #     transform=transform,
+        #     fill=0,
+        #     dtype=np.uint8,
+        # )
+        # if mask.sum() == 0:
+        #     raise ValueError("Empty mask after rasterize")
+        #
+        # out = np.zeros((h, w, 3), dtype=np.uint8)
+        # out[mask == 1] = [255, 0, 0]
+        # Image.fromarray(out).save(output_mask_path)
 
         update_input_progress(upload_uuid, 70)
         trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)

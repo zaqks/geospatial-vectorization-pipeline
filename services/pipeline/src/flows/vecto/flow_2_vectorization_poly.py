@@ -86,20 +86,20 @@ async def vectorize_poly(params: WorkspaceParams):
 
             gdf.to_file(output_dir / f"{class_name}.geojson", driver="GeoJSON")
 
-        for class_name, geoms in tqdm(results.items(), desc="Export polygon debug"):
-            if not geoms:
-                continue
-
-            mask = rasterize(
-                [(geom, 1) for geom in geoms],
-                out_shape=(h, w),
-                transform=transform,
-                fill=0,
-                dtype=np.uint8,
-            )
-            out = np.zeros((h, w, 3), dtype=np.uint8)
-            out[mask == 1] = [255, 0, 0]
-            Image.fromarray(out).save(output_dir / f"{class_name}.png")
+        # for class_name, geoms in tqdm(results.items(), desc="Export polygon debug"):
+        #     if not geoms:
+        #         continue
+        #
+        #     mask = rasterize(
+        #         [(geom, 1) for geom in geoms],
+        #         out_shape=(h, w),
+        #         transform=transform,
+        #         fill=0,
+        #         dtype=np.uint8,
+        #     )
+        #     out = np.zeros((h, w, 3), dtype=np.uint8)
+        #     out[mask == 1] = [255, 0, 0]
+        #     Image.fromarray(out).save(output_dir / f"{class_name}.png")
 
         update_input_progress(upload_uuid, 55)
         trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)

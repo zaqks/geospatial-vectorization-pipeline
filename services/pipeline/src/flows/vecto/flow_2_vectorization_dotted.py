@@ -128,17 +128,17 @@ async def vectorize_dotted(params: WorkspaceParams):
             out_geojson = output_dir / f"{TARGET_CLASS}.geojson"
             gdf.to_file(out_geojson, driver="GeoJSON")
 
-            gdf_r = gdf.to_crs(crs)
-            debug_mask = rasterize(
-                [(geom, 1) for geom in gdf_r.geometry],
-                out_shape=(h, w),
-                transform=transform,
-                fill=0,
-                dtype=np.uint8,
-            )
-            out_img = np.zeros((h, w, 3), dtype=np.uint8)
-            out_img[debug_mask == 1] = (255, 0, 0)
-            Image.fromarray(out_img).save(output_dir / f"{TARGET_CLASS}.png")
+            # gdf_r = gdf.to_crs(crs)
+            # debug_mask = rasterize(
+            #     [(geom, 1) for geom in gdf_r.geometry],
+            #     out_shape=(h, w),
+            #     transform=transform,
+            #     fill=0,
+            #     dtype=np.uint8,
+            # )
+            # out_img = np.zeros((h, w, 3), dtype=np.uint8)
+            # out_img[debug_mask == 1] = (255, 0, 0)
+            # Image.fromarray(out_img).save(output_dir / f"{TARGET_CLASS}.png")
 
         update_input_progress(upload_uuid, 40)
         trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
