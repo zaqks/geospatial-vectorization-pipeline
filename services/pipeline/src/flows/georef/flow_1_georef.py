@@ -1,6 +1,6 @@
 import gc
 import math
-import os
+import asyncio
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +13,7 @@ from ..workspace.common import WorkspaceParams, workspace_paths
 from ...utils.service import (
     get_input_georef_bounds,
     tirrger_flow,
-    update_input_progress,
+    update_input_progress_async,
 )
 
 INPUT_IMAGE_PATH = Path("data/input.png")
@@ -27,14 +27,15 @@ async def georef_main(params: WorkspaceParams):
     logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
-
-    os.chdir(workspace_dir)
     logger.info("Running georef in workspace %s", workspace_dir)
 
-    try:
-        OUTPUT_TIF_PATH.parent.mkdir(parents=True, exist_ok=True)
+    input_image_path = workspace_dir / INPUT_IMAGE_PATH
+    output_tif_path = workspace_dir / OUTPUT_TIF_PATH
 
-        bounds = get_input_georef_bounds(upload_uuid)
+    try:
+        output_tif_path.parent.mkdir(parents=True, exist_ok=True)
+
+        bounds = await asyncio.to_thread(get_input_georef_bounds, upload_uuid)
         if not bounds:
             raise ValueError(f"No input row found for uuid={upload_uuid}")
 
@@ -52,38 +53,43 @@ async def georef_main(params: WorkspaceParams):
         min_y = lat_to_y(south)
         max_y = lat_to_y(north)
 
-        with Image.open(INPUT_IMAGE_PATH).convert("RGB") as img:
-            img_np = np.array(img)
+        def _render_geotiff() -> None:
+            with Image.open(input_image_path).convert("RGB") as img:
+                img_np = np.array(img)
 
-        height, width, _ = img_np.shape
-        transform = from_bounds(min_x, min_y, max_x, max_y, width, height)
+            height, width, _ = img_np.shape
+            transform = from_bounds(min_x, min_y, max_x, max_y, width, height)
 
-        with rasterio.open(
-            OUTPUT_TIF_PATH,
-            "w",
-            driver="GTiff",
-            height=height,
-            width=width,
-            count=3,
-            dtype=img_np.dtype,
-            crs="EPSG:3857",
-            transform=transform,
-            compress="DEFLATE",
-            predictor=2,
-            tiled=True,
-            blockxsize=256,
-            blockysize=256,
-        ) as dst:
-            dst.write(img_np[:, :, 0], 1)
-            dst.write(img_np[:, :, 1], 2)
-            dst.write(img_np[:, :, 2], 3)
+            with rasterio.open(
+                output_tif_path,
+                "w",
+                driver="GTiff",
+                height=height,
+                width=width,
+                count=3,
+                dtype=img_np.dtype,
+                crs="EPSG:3857",
+                transform=transform,
+                compress="DEFLATE",
+                predictor=2,
+                tiled=True,
+                blockxsize=256,
+                blockysize=256,
+            ) as dst:
+                dst.write(img_np[:, :, 0], 1)
+                dst.write(img_np[:, :, 1], 2)
+                dst.write(img_np[:, :, 2], 3)
 
-        update_input_progress(upload_uuid, 10)
-        trigger_result = tirrger_flow("2_vectorization_line", upload_uuid)
+        await asyncio.to_thread(_render_geotiff)
+
+        await update_input_progress_async(upload_uuid, 10)
+        trigger_result = await asyncio.to_thread(
+            tirrger_flow, "2_vectorization_line", upload_uuid
+        )
 
         return {
             "uuid": upload_uuid,
-            "output_tif": str(OUTPUT_TIF_PATH),
+            "output_tif": str(output_tif_path),
             "next": "2_vectorization_line",
             "trigger": trigger_result,
         }

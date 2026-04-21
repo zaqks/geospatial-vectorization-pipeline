@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 import httpx
 from pydantic import BaseModel
@@ -63,4 +64,8 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     #     return response.json()
     # except ValueError:
     #     return {"status_code": response.status_code, "text": response.text}
-    print('piew')
+    print("yoo")
+
+
+async def update_input_progress_async(upload_uuid: str, percent: int) -> Input | None:
+    return await asyncio.to_thread(update_input_progress, upload_uuid, percent)

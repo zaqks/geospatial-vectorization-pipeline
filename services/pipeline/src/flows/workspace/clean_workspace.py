@@ -1,8 +1,9 @@
 import shutil
+import asyncio
 
 from plombery import get_logger, register_pipeline, task
 
-from ...utils.service import update_input_progress
+from ...utils.service import update_input_progress_async
 from .common import WorkspaceParams, workspace_paths
 
 
@@ -14,9 +15,9 @@ async def clean_workspace(params: WorkspaceParams):
 
     existed = workspace_dir.exists()
     if existed:
-        shutil.rmtree(workspace_dir)
+        await asyncio.to_thread(shutil.rmtree, workspace_dir)
 
-    update_input_progress(upload_uuid, 100)
+    await update_input_progress_async(upload_uuid, 100)
 
     logger.info("Workspace cleaned at %s (existed=%s)", workspace_dir, existed)
     return {

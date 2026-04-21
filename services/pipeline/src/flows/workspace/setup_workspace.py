@@ -1,13 +1,14 @@
 from io import BytesIO
 from pathlib import Path
 import shutil
+import asyncio
 
 from PIL import Image, UnidentifiedImageError
 from plombery import get_logger, register_pipeline, task
 
 from ...utils._db import SessionLocal
 from ...utils.models import Input
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import tirrger_flow, update_input_progress_async
 from .common import WorkspaceParams, workspace_paths
 
 
@@ -30,13 +31,17 @@ async def setup_workspace(params: WorkspaceParams):
     finally:
         db.close()
 
-    try:
-        with Image.open(BytesIO(image_bytes)) as uploaded_image:
-            uploaded_image.convert("RGBA").save(input_png, format="PNG")
-    except UnidentifiedImageError as exc:
-        raise ValueError(f"Stored upload is not a valid image for uuid={upload_uuid}") from exc
+    def _save_png() -> None:
+        try:
+            with Image.open(BytesIO(image_bytes)) as uploaded_image:
+                uploaded_image.convert("RGBA").save(input_png, format="PNG")
+        except UnidentifiedImageError as exc:
+            raise ValueError(
+                f"Stored upload is not a valid image for uuid={upload_uuid}"
+            ) from exc
 
-    update_input_progress(upload_uuid, 1)
+    await asyncio.to_thread(_save_png)
+    await update_input_progress_async(upload_uuid, 1)
 
     logger.info("Workspace prepared at %s", workspace_dir)
     return {
@@ -58,8 +63,8 @@ async def init_legend(params: WorkspaceParams):
         raise FileNotFoundError(f"Legend source file not found at {LEGEND_SOURCE_PATH}")
 
     legend_target_path = data_dir / "legend_class_geo.csv"
-    shutil.copy2(LEGEND_SOURCE_PATH, legend_target_path)
-    trigger_result = tirrger_flow("1_georef", upload_uuid)
+    await asyncio.to_thread(shutil.copy2, LEGEND_SOURCE_PATH, legend_target_path)
+    trigger_result = await asyncio.to_thread(tirrger_flow, "1_georef", upload_uuid)
 
     logger.info("Legend initialized at %s", legend_target_path)
     return {
