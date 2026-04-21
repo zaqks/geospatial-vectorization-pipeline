@@ -79,19 +79,19 @@ async def get_result(upload_uuid: str, request: Request, db: Session = Depends(g
     """
     Get processing result for a given UUID.
 
-    Returns status_percent only until processing is complete (100).
-    On third call, returns full result with img_url and files.
+    Returns status_percent from DB until processing output is available.
     """
     db_input, db_output = get_mock_result(db, upload_uuid)
     if not db_input:
         raise HTTPException(status_code=404, detail="Upload not found")
 
-    if db_input.percent_progress < 100:
+    if db_input.percent_progress < 100 or not db_output or not db_output.output_files:
         return ProcessingResponse(status_percent=db_input.percent_progress)
 
-    media_url = build_upload_media_url(upload_uuid, "giphy.gif", request)
+    preview_filename = db_output.output_files[0].name
+    media_url = build_upload_media_url(upload_uuid, preview_filename, request)
     return ResultResponse(
         img_url=media_url,
         files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in db_output.output_files],
-        status_percent=100,
+        status_percent=db_input.percent_progress,
     )
