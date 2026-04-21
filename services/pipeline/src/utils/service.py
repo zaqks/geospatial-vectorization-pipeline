@@ -1,9 +1,34 @@
 import os
 
 import httpx
+from pydantic import BaseModel
 
 from ._db import SessionLocal
 from .models import Input
+
+
+class GeorefBounds(BaseModel):
+    lat1: float
+    lat2: float
+    lng1: float
+    lng2: float
+
+
+def get_input_georef_bounds(upload_uuid: str) -> GeorefBounds | None:
+    db = SessionLocal()
+    try:
+        db_input = db.get(Input, upload_uuid)
+        if not db_input:
+            return None
+
+        return GeorefBounds(
+            lat1=float(db_input.lat1),
+            lat2=float(db_input.lat2),
+            lng1=float(db_input.lng1),
+            lng2=float(db_input.lng2),
+        )
+    finally:
+        db.close()
 
 
 def update_input_progress(upload_uuid: str, percent: int) -> Input | None:
