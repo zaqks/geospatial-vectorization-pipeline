@@ -7,7 +7,7 @@ from plombery import get_logger, register_pipeline, task
 
 from ...utils._db import SessionLocal
 from ...utils.models import Input
-from ...utils.service import update_input_progress
+from ...utils.service import tirrger_flow, update_input_progress
 from .common import WorkspaceParams, workspace_paths
 
 
@@ -59,11 +59,14 @@ async def init_legend(params: WorkspaceParams):
 
     legend_target_path = data_dir / "legend_class_geo.csv"
     shutil.copy2(LEGEND_SOURCE_PATH, legend_target_path)
+    trigger_result = tirrger_flow("1_georef", upload_uuid)
 
     logger.info("Legend initialized at %s", legend_target_path)
     return {
         "uuid": upload_uuid,
         "legend_csv": str(legend_target_path),
+        "next": "1_georef",
+        "trigger": trigger_result,
     }
 
 
