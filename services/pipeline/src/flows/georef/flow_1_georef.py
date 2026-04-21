@@ -10,13 +10,15 @@ from plombery import get_logger, register_pipeline, task
 from rasterio.transform import from_bounds
 
 from ..workspace.common import WorkspaceParams, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import (
+    get_input_georef_bounds,
+    tirrger_flow,
+    update_input_progress,
+)
 
 INPUT_IMAGE_PATH = Path("data/input.png")
 OUTPUT_TIF_PATH = Path("data/georef.tif")
 
-# Bounding box (EPSG:4326 - lat/lon)
-SOUTH, NORTH, WEST, EAST = 36.6931181, 36.7309185, 3.1148535, 3.1639197
 R = 6378137.0
 
 
@@ -32,16 +34,23 @@ async def georef_main(params: WorkspaceParams):
     try:
         OUTPUT_TIF_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+        bounds = get_input_georef_bounds(upload_uuid)
+        if not bounds:
+            raise ValueError(f"No input row found for uuid={upload_uuid}")
+
+        south, north = sorted((bounds.lat1, bounds.lat2))
+        west, east = sorted((bounds.lng1, bounds.lng2))
+
         def lon_to_x(lon: float) -> float:
             return R * math.radians(lon)
 
         def lat_to_y(lat: float) -> float:
             return R * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
 
-        min_x = lon_to_x(WEST)
-        max_x = lon_to_x(EAST)
-        min_y = lat_to_y(SOUTH)
-        max_y = lat_to_y(NORTH)
+        min_x = lon_to_x(west)
+        max_x = lon_to_x(east)
+        min_y = lat_to_y(south)
+        max_y = lat_to_y(north)
 
         with Image.open(INPUT_IMAGE_PATH).convert("RGB") as img:
             img_np = np.array(img)
