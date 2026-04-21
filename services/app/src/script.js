@@ -18,10 +18,7 @@ const newMapBtn = document.getElementById("new-map-btn");
 const fileInput = document.getElementById("map-file");
 const uploadPreviewFigure = document.getElementById("upload-preview-figure");
 const uploadPreviewImage = document.getElementById("upload-preview-image");
-const lat1Input = document.getElementById("lat-1");
-const lng1Input = document.getElementById("lng-1");
-const lat2Input = document.getElementById("lat-2");
-const lng2Input = document.getElementById("lng-2");
+const pointsLineInput = document.getElementById("points-line");
 
 const statusPercent = document.getElementById("status-percent");
 const loadingBarFill = document.getElementById("loading-bar-fill");
@@ -157,10 +154,7 @@ function stopPolling() {
 
 function setInputsDisabled(disabled) {
   fileInput.disabled = disabled;
-  lat1Input.disabled = disabled;
-  lng1Input.disabled = disabled;
-  lat2Input.disabled = disabled;
-  lng2Input.disabled = disabled;
+  pointsLineInput.disabled = disabled;
   submitBtn.disabled = disabled || !isUploadReady();
 }
 
@@ -169,9 +163,25 @@ function hasSelectedImage() {
 }
 
 function arePointFieldsFilled() {
-  return [lat1Input, lng1Input, lat2Input, lng2Input].every(
-    (input) => input.value.trim() !== ""
-  );
+  return pointsLineInput.value.trim() !== "";
+}
+
+function parseCoordinateLine(rawLine) {
+  const parts = rawLine
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+
+  if (parts.length !== 4) {
+    return null;
+  }
+
+  const [lat1, lng1, lat2, lng2] = parts.map((part) => Number(part));
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) {
+    return null;
+  }
+
+  return { lat1, lng1, lat2, lng2 };
 }
 
 function isUploadReady() {
@@ -260,15 +270,15 @@ async function handleUpload(event) {
     return;
   }
 
-  const lat1 = Number(lat1Input.value);
-  const lng1 = Number(lng1Input.value);
-  const lat2 = Number(lat2Input.value);
-  const lng2 = Number(lng2Input.value);
-
-  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) {
-    showMessage("Please enter valid latitude and longitude values.");
+  const parsedCoords = parseCoordinateLine(pointsLineInput.value);
+  if (!parsedCoords) {
+    showMessage(
+      "Please enter valid comma-separated coordinates: latA, lngA, latB, lngB."
+    );
     return;
   }
+
+  const { lat1, lng1, lat2, lng2 } = parsedCoords;
 
   const bbox = {
     points: [
@@ -342,9 +352,7 @@ function init() {
     updatePreview();
     updateSubmitState();
   });
-  [lat1Input, lng1Input, lat2Input, lng2Input].forEach((input) => {
-    input.addEventListener("input", updateSubmitState);
-  });
+  pointsLineInput.addEventListener("input", updateSubmitState);
   newMapBtn.addEventListener("click", resetForNewMap);
 
   const rememberedUuid = getCookie(COOKIE_NAME);

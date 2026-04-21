@@ -120,19 +120,14 @@
               <div class="panel-heading sub">02 - Coordinate anchors</div>
               <div class="coords-grid">
                 <fieldset>
-                  <legend>Point A</legend>
-                  <label for="lat-1">Latitude</label>
-                  <input id="lat-1" type="number" step="any" placeholder="36.5897" required />
-                  <label for="lng-1">Longitude</label>
-                  <input id="lng-1" type="number" step="any" placeholder="2.4475" required />
-                </fieldset>
-
-                <fieldset>
-                  <legend>Point B</legend>
-                  <label for="lat-2">Latitude</label>
-                  <input id="lat-2" type="number" step="any" placeholder="36.5905" required />
-                  <label for="lng-2">Longitude</label>
-                  <input id="lng-2" type="number" step="any" placeholder="2.4502" required />
+                  <legend>Points A and B</legend>
+                  <label for="points-line">Coordinates (latA, lngA, latB, lngB)</label>
+                  <input
+                    id="points-line"
+                    type="text"
+                    placeholder="Example: 36.5897, 2.4475, 36.5905, 2.4502"
+                    required
+                  />
                 </fieldset>
               </div>
 
