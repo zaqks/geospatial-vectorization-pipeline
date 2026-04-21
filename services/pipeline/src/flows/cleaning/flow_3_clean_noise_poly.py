@@ -1,5 +1,5 @@
 import gc
-import os
+import asyncio
 from pathlib import Path
 
 import geopandas as gpd
@@ -80,23 +80,29 @@ async def clean_noise_poly(params: WorkspaceParams):
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
-    os.chdir(workspace_dir)
-    OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
+    input_folder = workspace_dir / INPUT_FOLDER
+    output_folder = workspace_dir / OUTPUT_FOLDER
+    reference_raster_path = workspace_dir / REFERENCE_RASTER_PATH
 
-    try:
-        geojson_files = list(INPUT_FOLDER.glob("*.geojson"))
+    def _run() -> dict:
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        geojson_files = list(input_folder.glob("*.geojson"))
 
         for geojson_path in tqdm(geojson_files, desc="Cleaning polygon geojson"):
             clean_and_debug_vector(
                 geojson_path=geojson_path,
-                output_dir=OUTPUT_FOLDER,
+                output_dir=output_folder,
                 min_area_m2=MIN_AREA_M2,
-                reference_raster_path=REFERENCE_RASTER_PATH,
+                reference_raster_path=reference_raster_path,
             )
 
         update_input_progress(upload_uuid, 90)
         trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
         return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
+
+    try:
+        return await asyncio.to_thread(_run)
     finally:
         gc.collect()
 

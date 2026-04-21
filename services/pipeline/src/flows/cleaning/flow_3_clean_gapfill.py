@@ -1,5 +1,5 @@
 import gc
-import os
+import asyncio
 from pathlib import Path
 
 import geopandas as gpd
@@ -36,15 +36,19 @@ async def clean_gapfill(params: WorkspaceParams):
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
-    os.chdir(workspace_dir)
-    OUTPUT_GEOJSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    input_geojson_path = workspace_dir / INPUT_GEOJSON_PATH
+    output_geojson_path = workspace_dir / OUTPUT_GEOJSON_PATH
+    output_mask_path = workspace_dir / OUTPUT_MASK_PATH
+    reference_raster_path = workspace_dir / REFERENCE_RASTER_PATH
 
-    try:
-        gdf = gpd.read_file(INPUT_GEOJSON_PATH)
+    def _run() -> dict:
+        output_geojson_path.parent.mkdir(parents=True, exist_ok=True)
+
+        gdf = gpd.read_file(input_geojson_path)
         if gdf.empty:
-            raise ValueError(f"GeoJSON is empty: {INPUT_GEOJSON_PATH}")
+            raise ValueError(f"GeoJSON is empty: {input_geojson_path}")
 
-        with rasterio.open(REFERENCE_RASTER_PATH) as src:
+        with rasterio.open(reference_raster_path) as src:
             transform = src.transform
             h, w = src.height, src.width
             raster_crs = src.crs
@@ -76,7 +80,7 @@ async def clean_gapfill(params: WorkspaceParams):
 
         out_gdf = gpd.GeoDataFrame(geometry=[filled], crs=gdf.crs)
         out_gdf["class"] = "water"
-        out_gdf.to_file(OUTPUT_GEOJSON_PATH, driver="GeoJSON")
+        out_gdf.to_file(output_geojson_path, driver="GeoJSON")
 
         mask = rasterize(
             [(filled, 1)],
@@ -90,11 +94,14 @@ async def clean_gapfill(params: WorkspaceParams):
 
         out = np.zeros((h, w, 3), dtype=np.uint8)
         out[mask == 1] = [255, 0, 0]
-        Image.fromarray(out).save(OUTPUT_MASK_PATH)
+        Image.fromarray(out).save(output_mask_path)
 
         update_input_progress(upload_uuid, 70)
         trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
         return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}
+
+    try:
+        return await asyncio.to_thread(_run)
     finally:
         gc.collect()
 

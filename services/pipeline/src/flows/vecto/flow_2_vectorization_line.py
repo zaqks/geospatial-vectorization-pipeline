@@ -1,5 +1,5 @@
 import gc
-import os
+import asyncio
 from pathlib import Path
 
 import geopandas as gpd
@@ -38,15 +38,18 @@ async def vectorize_line(params: WorkspaceParams):
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
-    os.chdir(workspace_dir)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    input_raster_path = workspace_dir / INPUT_RASTER_PATH
+    input_legend_path = workspace_dir / INPUT_LEGEND_PATH
+    output_dir = workspace_dir / OUTPUT_DIR
 
-    try:
-        df = pd.read_csv(INPUT_LEGEND_PATH)
+    def _run() -> dict:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        df = pd.read_csv(input_legend_path)
         df = df[(df["geometry"] == "line") & (df["class"] != "railway")]
         color_class_map = {hex_to_rgb(row["hex"]): row["class"] for _, row in df.iterrows()}
 
-        with rasterio.open(INPUT_RASTER_PATH) as src:
+        with rasterio.open(input_raster_path) as src:
             img = src.read()
             transform = src.transform
             crs = src.crs
@@ -94,7 +97,7 @@ async def vectorize_line(params: WorkspaceParams):
                 gdf = gdf.to_crs("EPSG:4326")
 
             class_name_safe = class_name.replace(" ", "_")
-            out_geojson = OUTPUT_DIR / f"{class_name_safe}.geojson"
+            out_geojson = output_dir / f"{class_name_safe}.geojson"
             gdf.to_file(out_geojson, driver="GeoJSON")
 
             gdf_for_raster = gdf.to_crs(crs)
@@ -108,11 +111,14 @@ async def vectorize_line(params: WorkspaceParams):
                 )
                 out_img = np.zeros((h, w, 3), dtype=np.uint8)
                 out_img[debug_mask == 1] = (255, 0, 0)
-                Image.fromarray(out_img).save(OUTPUT_DIR / f"{class_name_safe}.png")
+                Image.fromarray(out_img).save(output_dir / f"{class_name_safe}.png")
 
         update_input_progress(upload_uuid, 25)
         trigger_result = tirrger_flow("2_vectorization_dotted", upload_uuid)
         return {"uuid": upload_uuid, "next": "2_vectorization_dotted", "trigger": trigger_result}
+
+    try:
+        return await asyncio.to_thread(_run)
     finally:
         gc.collect()
 

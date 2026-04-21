@@ -1,5 +1,5 @@
 import gc
-import os
+import asyncio
 from pathlib import Path
 
 import geopandas as gpd
@@ -26,11 +26,14 @@ async def vectorize_poly(params: WorkspaceParams):
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
-    os.chdir(workspace_dir)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    input_raster_path = workspace_dir / INPUT_RASTER_PATH
+    input_legend_path = workspace_dir / INPUT_LEGEND_PATH
+    output_dir = workspace_dir / OUTPUT_DIR
 
-    try:
-        df = pd.read_csv(INPUT_LEGEND_PATH)
+    def _run() -> dict:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        df = pd.read_csv(input_legend_path)
         df = df[df.geometry == "polygon"]
 
         def hex_to_rgb(h: str) -> tuple[int, int, int]:
@@ -44,7 +47,7 @@ async def vectorize_poly(params: WorkspaceParams):
             (r << 16 | g << 8 | b): i for i, ((r, g, b), _) in enumerate(rgb_to_class.items())
         }
 
-        with rasterio.open(INPUT_RASTER_PATH) as src:
+        with rasterio.open(input_raster_path) as src:
             img = src.read()[:3]
             transform = src.transform
             crs = src.crs
@@ -81,7 +84,7 @@ async def vectorize_poly(params: WorkspaceParams):
             if EXPORT_TO_WGS84:
                 gdf = gdf.to_crs("EPSG:4326")
 
-            gdf.to_file(OUTPUT_DIR / f"{class_name}.geojson", driver="GeoJSON")
+            gdf.to_file(output_dir / f"{class_name}.geojson", driver="GeoJSON")
 
         for class_name, geoms in tqdm(results.items(), desc="Export polygon debug"):
             if not geoms:
@@ -96,11 +99,14 @@ async def vectorize_poly(params: WorkspaceParams):
             )
             out = np.zeros((h, w, 3), dtype=np.uint8)
             out[mask == 1] = [255, 0, 0]
-            Image.fromarray(out).save(OUTPUT_DIR / f"{class_name}.png")
+            Image.fromarray(out).save(output_dir / f"{class_name}.png")
 
         update_input_progress(upload_uuid, 55)
         trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
         return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
+
+    try:
+        return await asyncio.to_thread(_run)
     finally:
         gc.collect()
 
