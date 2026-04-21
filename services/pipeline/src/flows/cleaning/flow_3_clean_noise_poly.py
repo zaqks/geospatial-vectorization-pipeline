@@ -61,18 +61,18 @@ def clean_and_debug_vector(
         transform = src.transform
         raster_crs = src.crs
 
-    gdf_for_raster = gdf_cleaned.to_crs(raster_crs)
-    if not gdf_for_raster.empty:
-        mask = rasterize(
-            [(geom, 1) for geom in gdf_for_raster.geometry],
-            out_shape=(h, w),
-            transform=transform,
-            fill=0,
-            dtype=np.uint8,
-        )
-        out_img = np.zeros((h, w, 3), dtype=np.uint8)
-        out_img[mask == 1] = [255, 0, 0]
-        Image.fromarray(out_img).save(output_dir / f"{base_name}.png")
+    # gdf_for_raster = gdf_cleaned.to_crs(raster_crs)
+    # if not gdf_for_raster.empty:
+    #     mask = rasterize(
+    #         [(geom, 1) for geom in gdf_for_raster.geometry],
+    #         out_shape=(h, w),
+    #         transform=transform,
+    #         fill=0,
+    #         dtype=np.uint8,
+    #     )
+    #     out_img = np.zeros((h, w, 3), dtype=np.uint8)
+    #     out_img[mask == 1] = [255, 0, 0]
+    #     Image.fromarray(out_img).save(output_dir / f"{base_name}.png")
 
 
 @task
@@ -109,7 +109,7 @@ async def clean_noise_poly(params: WorkspaceParams):
 
 register_pipeline(
     id="3_clean_noise_poly",
-    description="Clean polygon noise and export debug masks.",
+    description="Clean polygon noise.",
     tasks=[clean_noise_poly],
     params=WorkspaceParams,
 )
