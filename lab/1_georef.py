@@ -23,6 +23,7 @@ place_name = "El Harrach, Algeria"
 
 # Bounding box (EPSG:4326 - lat/lon)
 south, north, west, east = 36.6931181, 36.7309185, 3.1148535, 3.1639197
+# 36.6931181, 3.1148535, 36.7309185, 3.1639197
 
 
 # In[3]:
