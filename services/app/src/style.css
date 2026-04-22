@@ -201,12 +201,12 @@ nav {
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.theme-toggle input:checked + .theme-toggle-track {
+.theme-toggle input:checked+.theme-toggle-track {
   background: rgba(59, 59, 255, 0.3);
   border-color: rgba(59, 59, 255, 0.45);
 }
 
-.theme-toggle input:checked + .theme-toggle-track::after {
+.theme-toggle input:checked+.theme-toggle-track::after {
   transform: translateX(20px);
 }
 
@@ -474,6 +474,7 @@ main {
   border: 0.5px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  margin-top: 30px;
 }
 
 .app-topbar {
@@ -943,6 +944,7 @@ input[type="text"]:focus {
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     opacity: 1;
