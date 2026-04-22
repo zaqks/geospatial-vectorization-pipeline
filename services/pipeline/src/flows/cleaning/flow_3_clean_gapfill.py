@@ -97,8 +97,8 @@ async def clean_gapfill(params: WorkspaceParams):
 
         update_input_progress(upload_uuid, 90)
         logger.info("[gapfill] Progress updated to 90%%")
-        trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
-        return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
+        trigger_result = tirrger_flow("5_export_output", upload_uuid)
+        return {"uuid": upload_uuid, "next": "5_export_output", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
