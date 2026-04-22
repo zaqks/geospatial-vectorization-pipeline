@@ -97,10 +97,10 @@ async def clean_noise_poly(params: WorkspaceParams):
             )
             logger.info("[noise] Cleaned %s", geojson_path.name)
 
-        update_input_progress(upload_uuid, 90)
-        logger.info("[noise] Progress updated to 90%%")
-        trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
-        return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
+        update_input_progress(upload_uuid, 70)
+        logger.info("[noise] Progress updated to 70%%")
+        trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
+        return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)

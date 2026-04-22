@@ -95,10 +95,10 @@ async def clean_gapfill(params: WorkspaceParams):
         # out[mask == 1] = [255, 0, 0]
         # Image.fromarray(out).save(output_mask_path)
 
-        update_input_progress(upload_uuid, 70)
-        logger.info("[gapfill] Progress updated to 70%%")
-        trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
-        return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}
+        update_input_progress(upload_uuid, 90)
+        logger.info("[gapfill] Progress updated to 90%%")
+        trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
+        return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
