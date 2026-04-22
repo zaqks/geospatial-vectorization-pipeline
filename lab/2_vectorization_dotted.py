@@ -23,7 +23,7 @@ BRIDGE_RADIUS = 100
 NOISE_RADIUS = 2
 MIN_LINE_LENGTH_M = 1
 SIMPLIFY_TOLERANCE = 1
-EXPORT_TO_WGS84 = True
+TARGET_CRS = "EPSG:3857"
 ENDPOINT_SEARCH_RADIUS_M = 50
 
 # -------------------------
@@ -48,6 +48,9 @@ with rasterio.open(raster_path) as src:
     transform = src.transform
     crs = src.crs
     h, w = src.height, src.width
+
+if str(crs) != TARGET_CRS:
+    raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
 
 img = np.moveaxis(img, 0, -1)
 
@@ -139,9 +142,6 @@ gdf = gdf[gdf["length_m"] >= MIN_LINE_LENGTH_M]
 gdf["geometry"] = gdf.geometry.simplify(SIMPLIFY_TOLERANCE, preserve_topology=True)
 gdf["class"] = TARGET_CLASS
 
-if EXPORT_TO_WGS84:
-    gdf = gdf.to_crs("EPSG:4326")
-
 # -------------------------
 # EXPORT
 # -------------------------
@@ -151,10 +151,8 @@ gdf.to_file(out_geojson, driver="GeoJSON")
 # -------------------------
 # DEBUG IMAGE (FASTER RASTERIZE)
 # -------------------------
-gdf_r = gdf.to_crs(crs)
-
 debug_mask = rasterize(
-    [(geom, 1) for geom in gdf_r.geometry],
+    [(geom, 1) for geom in gdf.geometry],
     out_shape=(h, w),
     transform=transform,
     fill=0,

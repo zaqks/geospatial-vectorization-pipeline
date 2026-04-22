@@ -10,6 +10,7 @@ from shapely.validation import make_valid
 # -------------------------
 # CONFIG
 # -------------------------
+TARGET_CRS = "EPSG:3857"
 # SIMPLIFY_TOL = 0.1  # adjust if needed
 
 
@@ -31,17 +32,15 @@ def clean_geometry(gdf, min_area_m2):
     # 4. Remove non-polygon geometries (safety)
     gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])]
 
-    # 5. Project to metric CRS for area filtering
-    original_crs = gdf.crs
-    gdf_metric = gdf.to_crs(epsg=3857)
+    if gdf.crs is None:
+        raise ValueError("Input GeoJSON has no CRS")
+    if str(gdf.crs) != TARGET_CRS:
+        raise ValueError(f"Expected vector CRS {TARGET_CRS}, got {gdf.crs}")
 
     # 6. Remove tiny polygons
-    gdf_metric["area"] = gdf_metric.geometry.area
-    gdf_metric = gdf_metric[gdf_metric["area"] >= min_area_m2]
-    gdf_metric = gdf_metric.drop(columns=["area"])
-
-    # 7. Back to original CRS
-    gdf = gdf_metric.to_crs(original_crs)
+    gdf["area"] = gdf.geometry.area
+    gdf = gdf[gdf["area"] >= min_area_m2]
+    gdf = gdf.drop(columns=["area"])
 
     # 8. Simplify geometry
     # gdf["geometry"] = gdf.geometry.simplify(
@@ -87,11 +86,14 @@ def clean_and_debug_vector(geojson_path, output_dir, min_area_m2, reference_rast
         transform = src.transform
         raster_crs = src.crs
 
-    gdf_for_raster = gdf_cleaned.to_crs(raster_crs)
+    if str(raster_crs) != TARGET_CRS:
+        raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {raster_crs}")
+    if str(gdf_cleaned.crs) != TARGET_CRS:
+        raise ValueError(f"Expected cleaned vector CRS {TARGET_CRS}, got {gdf_cleaned.crs}")
 
-    if not gdf_for_raster.empty:
+    if not gdf_cleaned.empty:
         mask = rasterize(
-            [(geom, 1) for geom in gdf_for_raster.geometry],
+            [(geom, 1) for geom in gdf_cleaned.geometry],
             out_shape=(h, w),
             transform=transform,
             fill=0,

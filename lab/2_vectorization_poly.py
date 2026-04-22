@@ -21,7 +21,7 @@ raster_path = "data/el_harrach_georef.tif"
 output_dir = "output/vect/poly"
 os.makedirs(output_dir, exist_ok=True)
 
-EXPORT_TO_WGS84 = True
+TARGET_CRS = "EPSG:3857"
 
 # -------------------------
 # LEGEND
@@ -52,6 +52,9 @@ with rasterio.open(raster_path) as src:
     img = src.read()[:3]
     transform = src.transform
     crs = src.crs
+
+if str(crs) != TARGET_CRS:
+    raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
 
 img = np.transpose(img, (1, 2, 0)).astype(np.uint8)
 h, w, _ = img.shape
@@ -94,9 +97,6 @@ for class_name, geoms in tqdm(results.items()):
 
     gdf = gpd.GeoDataFrame(geometry=geoms, crs=crs)
     gdf["class"] = class_name
-
-    if EXPORT_TO_WGS84:
-        gdf = gdf.to_crs("EPSG:4326")
 
     gdf.to_file(os.path.join(output_dir, f"{class_name}.geojson"), driver="GeoJSON")
 

@@ -13,6 +13,7 @@ import rasterio
 # -------------------------
 # CONFIG (PROJECTED CRS ONLY)
 # -------------------------
+TARGET_CRS = "EPSG:3857"
 input_geojson = "output/vect/poly/water.geojson"
 output_geojson = "output/vect/poly/water.geojson"
 output_mask = "output/vect/poly/water.png"
@@ -56,9 +57,11 @@ print("Shape:", (h, w))
 if gdf.crs is None:
     raise ValueError("❌ Input GeoJSON has no CRS")
 
-if gdf.crs != raster_crs:
-    print("\n⚠️ Reprojecting vector to raster CRS...")
-    gdf = gdf.to_crs(raster_crs)
+if str(raster_crs) != TARGET_CRS:
+    raise ValueError(f"❌ Expected raster CRS {TARGET_CRS}, got {raster_crs}")
+
+if str(gdf.crs) != TARGET_CRS:
+    raise ValueError(f"❌ Expected vector CRS {TARGET_CRS}, got {gdf.crs}")
 
 print("\n--- AFTER REPROJECTION ---")
 print("CRS:", gdf.crs)
