@@ -809,6 +809,22 @@ input[type="text"]:focus {
   background: var(--frame-bg);
 }
 
+.result-visual-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.overlay-panel {
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
 #result-map-stack {
   position: relative;
   width: 100%;
@@ -976,6 +992,17 @@ input[type="text"]:focus {
   .stage-wrap {
     padding: 18px;
     min-height: 0;
+  }
+}
+
+@media (min-width: 1060px) {
+  .result-visual-row {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .overlay-panel {
+    max-height: 58vh;
+    overflow: auto;
   }
 }
 
