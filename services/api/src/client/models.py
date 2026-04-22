@@ -28,11 +28,15 @@ class Output(Base):
 	__tablename__ = "outputs"
 
 	uuid = Column(String(36), ForeignKey("inputs.uuid"), primary_key=True)
-	image = Column(LargeBinary, nullable=False)
 
 	input = relationship("Input", back_populates="output")
 	output_files = relationship(
 		"OutputFile",
+		back_populates="output",
+		cascade="all, delete-orphan",
+	)
+	overlay_images = relationship(
+		"OverlayImage",
 		back_populates="output",
 		cascade="all, delete-orphan",
 	)
@@ -47,3 +51,14 @@ class OutputFile(Base):
 	file = Column(LargeBinary, nullable=False)
 
 	output = relationship("Output", back_populates="output_files")
+
+
+class OverlayImage(Base):
+	__tablename__ = "overlay_images"
+
+	id = Column(Integer, primary_key=True, index=True)
+	output_uuid = Column(String(36), ForeignKey("outputs.uuid"), nullable=False)
+	name = Column(String, nullable=False)
+	image = Column(LargeBinary, nullable=False)
+
+	output = relationship("Output", back_populates="overlay_images")
