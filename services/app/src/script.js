@@ -11,6 +11,8 @@ const uploadPanel = document.getElementById("upload-panel");
 const statusPanel = document.getElementById("status-panel");
 const resultPanel = document.getElementById("result-panel");
 const messagePanel = document.getElementById("message-panel");
+const heroSection = document.getElementById("hero-section");
+const studioOnlyNodes = document.querySelectorAll(".studio-only");
 
 const uploadForm = document.getElementById("upload-form");
 const submitBtn = document.getElementById("submit-btn");
@@ -25,7 +27,9 @@ const statusPercent = document.getElementById("status-percent");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const statusLabel = statusPanel?.querySelector(".status-label");
 const resultImage = document.getElementById("result-image");
+const resultOverlays = document.getElementById("result-overlays");
 const downloadsList = document.getElementById("downloads-list");
+const overlayList = document.getElementById("overlay-list");
 const messageText = document.getElementById("message-text");
 const themeToggle = document.getElementById("theme-toggle");
 
@@ -139,6 +143,15 @@ function showOnly(panel) {
 
     el.classList.toggle("hidden", el !== panel);
   });
+
+  const showHomeDecor = panel === uploadPanel;
+  if (heroSection) {
+    heroSection.classList.toggle("hidden", !showHomeDecor);
+  }
+
+  studioOnlyNodes.forEach((node) => {
+    node.classList.toggle("hidden", !showHomeDecor);
+  });
 }
 
 function showMessage(message) {
@@ -235,6 +248,47 @@ function updateSubmitState() {
 function renderResult(data) {
   const imageUrl = buildUrl(data.img_url || "");
   resultImage.src = imageUrl;
+  resultOverlays.innerHTML = "";
+  overlayList.innerHTML = "";
+
+  const overlays = Array.isArray(data.overlays) ? data.overlays : [];
+  overlays.forEach((entry, index) => {
+    if (!Array.isArray(entry) || entry.length < 2) {
+      return;
+    }
+
+    const [name, link] = entry;
+    const label = String(name || `overlay-${index + 1}`);
+    const overlayUrl = buildUrl(String(link));
+    const overlayId = `overlay-${index}`;
+
+    const overlayImg = document.createElement("img");
+    overlayImg.src = overlayUrl;
+    overlayImg.alt = label;
+    overlayImg.className = "result-overlay-image";
+    overlayImg.dataset.overlayId = overlayId;
+    resultOverlays.appendChild(overlayImg);
+
+    const li = document.createElement("li");
+    li.className = "overlay-item";
+    const toggleLabel = document.createElement("label");
+    toggleLabel.className = "overlay-toggle";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    checkbox.addEventListener("change", () => {
+      overlayImg.classList.toggle("hidden", !checkbox.checked);
+    });
+
+    const text = document.createElement("span");
+    text.textContent = label;
+
+    toggleLabel.appendChild(checkbox);
+    toggleLabel.appendChild(text);
+    li.appendChild(toggleLabel);
+    overlayList.appendChild(li);
+  });
 
   downloadsList.innerHTML = "";
   const files = Array.isArray(data.files) ? data.files : [];
@@ -367,6 +421,8 @@ function resetForNewMap() {
 
   uploadForm.reset();
   clearPreview();
+  resultOverlays.innerHTML = "";
+  overlayList.innerHTML = "";
   downloadsList.innerHTML = "";
   resultImage.removeAttribute("src");
   setStatusMode("processing");

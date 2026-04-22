@@ -809,12 +809,64 @@ input[type="text"]:focus {
   background: var(--frame-bg);
 }
 
+#result-map-stack {
+  position: relative;
+  width: 100%;
+}
+
 #result-image {
   width: 100%;
   max-height: 58vh;
   object-fit: contain;
   display: block;
 }
+
+.result-overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.result-overlay-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.overlay-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.overlay-item {
+  border: 0.5px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+  padding: 0.55rem 0.7rem;
+}
+
+.overlay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted-2);
+}
+
+.overlay-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 
 .shapefiles-header {
   display: flex;
