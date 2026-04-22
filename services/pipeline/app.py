@@ -20,6 +20,7 @@ from src.flows.vecto.flow_2_vectorization_dotted import *
 from src.flows.vecto.flow_2_vectorization_poly import *
 from src.flows.cleaning.flow_3_clean_gapfill import *
 from src.flows.cleaning.flow_3_clean_noise_poly import *
+from src.flows.workspace.flow_5_export_output import *
 from src.flows.workspace.clean_workspace import *
 
 import uvicorn

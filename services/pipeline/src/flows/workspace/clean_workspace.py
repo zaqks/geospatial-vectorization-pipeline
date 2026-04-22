@@ -28,7 +28,7 @@ async def clean_workspace(params: WorkspaceParams):
 
 
 register_pipeline(
-    id="5_clean_workspace",
+    id="6_clean_workspace",
     description="Delete /tmp/<uuid> workspace folder.",
     tasks=[clean_workspace],
     params=WorkspaceParams,
