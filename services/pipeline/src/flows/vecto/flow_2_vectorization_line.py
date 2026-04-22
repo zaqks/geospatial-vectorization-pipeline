@@ -6,9 +6,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from PIL import Image
-from plombery import register_pipeline, task
-from rasterio.features import rasterize, shapes
+from plombery import get_logger, register_pipeline, task
+from rasterio.features import shapes
 from shapely.geometry import shape
 from skimage.morphology import closing, disk, remove_small_objects, skeletonize
 from tqdm import tqdm
@@ -35,6 +34,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 
 @task
 async def vectorize_line(params: WorkspaceParams):
+    logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
@@ -43,11 +43,13 @@ async def vectorize_line(params: WorkspaceParams):
     output_dir = workspace_dir / OUTPUT_DIR
 
     def _run() -> dict:
+        logger.info("[line] Starting line vectorization for uuid=%s", upload_uuid)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         df = pd.read_csv(input_legend_path)
         df = df[(df["geometry"] == "line") & (df["class"] != "railway")]
         color_class_map = {hex_to_rgb(row["hex"]): row["class"] for _, row in df.iterrows()}
+        logger.info("[line] Found %s line classes to process", len(color_class_map))
 
         with rasterio.open(input_raster_path) as src:
             img = src.read()
@@ -99,6 +101,12 @@ async def vectorize_line(params: WorkspaceParams):
             class_name_safe = class_name.replace(" ", "_")
             out_geojson = output_dir / f"{class_name_safe}.geojson"
             gdf.to_file(out_geojson, driver="GeoJSON")
+            logger.info(
+                "[line] Exported %s with %s features to %s",
+                class_name,
+                len(gdf),
+                out_geojson,
+            )
 
             # gdf_for_raster = gdf.to_crs(crs)
             # if not gdf_for_raster.empty:
@@ -114,7 +122,9 @@ async def vectorize_line(params: WorkspaceParams):
             #     Image.fromarray(out_img).save(output_dir / f"{class_name_safe}.png")
 
         update_input_progress(upload_uuid, 25)
+        logger.info("[line] Progress updated to 25%%")
         trigger_result = tirrger_flow("2_vectorization_dotted", upload_uuid)
+        logger.info("[line] Triggered next pipeline: 2_vectorization_dotted")
         return {"uuid": upload_uuid, "next": "2_vectorization_dotted", "trigger": trigger_result}
 
     try:

@@ -7,9 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from PIL import Image
-from plombery import register_pipeline, task
-from rasterio.features import rasterize, shapes
+from plombery import get_logger, register_pipeline, task
+from rasterio.features import shapes
 from scipy.spatial import KDTree
 from shapely.geometry import LineString, shape
 from skimage.morphology import skeletonize
@@ -33,6 +32,7 @@ ENDPOINT_SEARCH_RADIUS_M = 50
 
 @task
 async def vectorize_dotted(params: WorkspaceParams):
+    logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
@@ -41,6 +41,7 @@ async def vectorize_dotted(params: WorkspaceParams):
     output_dir = workspace_dir / OUTPUT_DIR
 
     def _run() -> dict:
+        logger.info("[dotted] Starting railway vectorization for uuid=%s", upload_uuid)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         df = pd.read_csv(input_legend_path)
@@ -63,8 +64,11 @@ async def vectorize_dotted(params: WorkspaceParams):
         img = np.moveaxis(img, 0, -1)
         mask = cv2.inRange(img, lower_b, upper_b)
         if not mask.any():
+            logger.info("[dotted] No railway pixels found in raster")
             update_input_progress(upload_uuid, 40)
+            logger.info("[dotted] Progress updated to 40%%")
             trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
+            logger.info("[dotted] Triggered next pipeline: 2_vectorization_poly")
             return {
                 "uuid": upload_uuid,
                 "railway_found": False,
@@ -127,6 +131,7 @@ async def vectorize_dotted(params: WorkspaceParams):
 
             out_geojson = output_dir / f"{TARGET_CLASS}.geojson"
             gdf.to_file(out_geojson, driver="GeoJSON")
+            logger.info("[dotted] Exported railway with %s features to %s", len(gdf), out_geojson)
 
             # gdf_r = gdf.to_crs(crs)
             # debug_mask = rasterize(
@@ -141,7 +146,9 @@ async def vectorize_dotted(params: WorkspaceParams):
             # Image.fromarray(out_img).save(output_dir / f"{TARGET_CLASS}.png")
 
         update_input_progress(upload_uuid, 40)
+        logger.info("[dotted] Progress updated to 40%%")
         trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
+        logger.info("[dotted] Triggered next pipeline: 2_vectorization_poly")
         return {
             "uuid": upload_uuid,
             "railway_found": not gdf.empty,
