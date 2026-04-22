@@ -701,6 +701,13 @@ input[type="text"]:focus {
   animation: spin 0.9s linear infinite;
 }
 
+#status-panel.result-loading .spinner {
+  border-color: rgba(59, 59, 255, 0.12);
+  border-top-color: var(--accent);
+  border-right-color: var(--accent-2);
+  animation: spin-pulse 1.1s ease-in-out infinite;
+}
+
 .status-label {
   margin: 0;
   font-size: 0.8rem;
@@ -717,6 +724,19 @@ input[type="text"]:focus {
   letter-spacing: -0.03em;
 }
 
+#status-panel.result-loading .status-percent {
+  font-size: 1.35rem;
+  letter-spacing: 0;
+}
+
+#status-panel.result-loading .status-percent #status-percent {
+  display: none;
+}
+
+#status-panel.result-loading .status-percent::after {
+  content: "...";
+}
+
 .loading-bar-track {
   width: 100%;
   height: 4px;
@@ -730,6 +750,27 @@ input[type="text"]:focus {
   width: 0%;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.25s ease;
+}
+
+#status-panel.result-loading .loading-bar-track {
+  opacity: 0;
+}
+
+@keyframes spin-pulse {
+  0% {
+    transform: rotate(0deg) scale(0.95);
+    box-shadow: 0 0 0 0 rgba(59, 59, 255, 0.2);
+  }
+
+  50% {
+    transform: rotate(180deg) scale(1);
+    box-shadow: 0 0 0 8px rgba(59, 59, 255, 0.05);
+  }
+
+  100% {
+    transform: rotate(360deg) scale(0.95);
+    box-shadow: 0 0 0 0 rgba(59, 59, 255, 0);
+  }
 }
 
 .result-head {

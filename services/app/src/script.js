@@ -2,6 +2,7 @@ const COOKIE_NAME = "upload_uuid";
 const COOKIE_MAX_AGE = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 1000;
 const THEME_STORAGE_KEY = "geovec_theme";
+const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
 const API_URL = String(RAW_API_URL).replace(/\/$/, "");
@@ -22,6 +23,7 @@ const pointsLineInput = document.getElementById("points-line");
 
 const statusPercent = document.getElementById("status-percent");
 const loadingBarFill = document.getElementById("loading-bar-fill");
+const statusLabel = statusPanel?.querySelector(".status-label");
 const resultImage = document.getElementById("result-image");
 const downloadsList = document.getElementById("downloads-list");
 const messageText = document.getElementById("message-text");
@@ -30,6 +32,36 @@ const themeToggle = document.getElementById("theme-toggle");
 let activeUuid = null;
 let pollTimer = null;
 let previewUrl = null;
+let statusMode = "processing";
+
+function resultReceivedKey(uuid) {
+  return `${RESULT_RECEIVED_PREFIX}${uuid}`;
+}
+
+function setResultReceived(uuid, received) {
+  if (!uuid) {
+    return;
+  }
+
+  window.localStorage.setItem(resultReceivedKey(uuid), received ? "true" : "false");
+}
+
+function hasReceivedResult(uuid) {
+  if (!uuid) {
+    return false;
+  }
+
+  return window.localStorage.getItem(resultReceivedKey(uuid)) === "true";
+}
+
+function setStatusMode(mode) {
+  statusMode = mode === "loading-result" ? "loading-result" : "processing";
+  statusPanel.classList.toggle("result-loading", statusMode === "loading-result");
+
+  if (statusLabel) {
+    statusLabel.textContent = statusMode === "loading-result" ? "Loading saved result" : "Progress";
+  }
+}
 
 function applyTheme(theme) {
   const normalizedTheme = theme === "dark" ? "dark" : "light";
@@ -115,6 +147,10 @@ function showMessage(message) {
 }
 
 function setProgress(percent) {
+  if (statusMode === "loading-result") {
+    return;
+  }
+
   const safePercent = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
   statusPercent.textContent = String(safePercent);
   if (loadingBarFill) {
@@ -238,6 +274,7 @@ async function pollOnce() {
     setProgress(percent);
 
     if (percent >= 100 && data.img_url) {
+      setResultReceived(activeUuid, true);
       stopPolling();
       renderResult(data);
     } else {
@@ -249,8 +286,9 @@ async function pollOnce() {
   }
 }
 
-function startPolling() {
+function startPolling(mode = "processing") {
   stopPolling();
+  setStatusMode(mode);
   showOnly(statusPanel);
   pollOnce();
   pollTimer = window.setInterval(pollOnce, POLL_INTERVAL_MS);
@@ -311,8 +349,9 @@ async function handleUpload(event) {
 
     activeUuid = String(data.uuid);
     setCookie(COOKIE_NAME, activeUuid, COOKIE_MAX_AGE);
+    setResultReceived(activeUuid, false);
     setProgress(0);
-    startPolling();
+    startPolling("processing");
   } catch (error) {
     uploadForm.dataset.processing = "false";
     setInputsDisabled(false);
@@ -330,6 +369,7 @@ function resetForNewMap() {
   clearPreview();
   downloadsList.innerHTML = "";
   resultImage.removeAttribute("src");
+  setStatusMode("processing");
   setProgress(0);
 
   uploadForm.dataset.processing = "false";
@@ -359,7 +399,12 @@ function init() {
   if (rememberedUuid) {
     activeUuid = rememberedUuid;
     setInputsDisabled(true);
-    startPolling();
+    if (hasReceivedResult(activeUuid)) {
+      startPolling("loading-result");
+    } else {
+      setProgress(0);
+      startPolling("processing");
+    }
     return;
   }
 
