@@ -74,7 +74,7 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     response = httpx.post(
         f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
         json=payload,
-        timeout=60.0,
+        timeout=600.0,
     )
     try:
         response.raise_for_status()

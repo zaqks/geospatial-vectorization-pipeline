@@ -3,7 +3,7 @@ import mimetypes
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from ..client.models import OutputFile
+from ..client.models import Output, OutputFile
 from ..utils._db import get_db
 
 router = APIRouter(tags=["Files"])
@@ -16,6 +16,17 @@ def _as_media_response(filename: str, blob: bytes) -> Response:
         media_type=media_type,
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+@router.get("/media/{upload_uuid}/preview/image.png")
+async def serve_output_preview_image(
+    upload_uuid: str,
+    db: Session = Depends(get_db),
+):
+    db_output = db.get(Output, upload_uuid)
+    if not db_output or not db_output.image:
+        raise HTTPException(status_code=404, detail="Preview image not found")
+    return _as_media_response("image.png", db_output.image)
 
 
 @router.get("/media/{upload_uuid}/{filename}")

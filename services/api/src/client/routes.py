@@ -28,6 +28,11 @@ def build_upload_media_url(upload_uuid: str, filename: str, request: Request) ->
     safe_filename = quote(filename, safe="")
     return build_media_url(f"/media/{safe_uuid}/{safe_filename}", request)
 
+
+def build_upload_preview_url(upload_uuid: str, request: Request) -> str:
+    safe_uuid = quote(upload_uuid, safe="")
+    return build_media_url(f"/media/{safe_uuid}/preview/image.png", request)
+
 def _parse_bounding_box(bounding_box: str):
     try:
         payload = json.loads(bounding_box)
@@ -95,13 +100,12 @@ async def get_result(upload_uuid: str, request: Request, db: Session = Depends(g
     if not db_input:
         raise HTTPException(status_code=404, detail="Upload not found")
 
-    if db_input.percent_progress < 100 or not db_output or not db_output.output_files:
+    if db_input.percent_progress < 100 or not db_output:
         return ProcessingResponse(status_percent=db_input.percent_progress)
 
-    preview_filename = db_output.output_files[0].name
-    media_url = build_upload_media_url(upload_uuid, preview_filename, request)
+    output_files = db_output.output_files or []
     return ResultResponse(
-        img_url=media_url,
-        files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in db_output.output_files],
+        img_url=build_upload_preview_url(upload_uuid, request),
+        files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in output_files],
         status_percent=db_input.percent_progress,
     )
