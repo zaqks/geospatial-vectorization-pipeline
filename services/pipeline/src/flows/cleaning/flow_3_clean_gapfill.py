@@ -1,4 +1,3 @@
-import gc
 import asyncio
 from pathlib import Path
 
@@ -8,7 +7,7 @@ from plombery import get_logger, register_pipeline, task
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_GEOJSON_PATH = Path("output/vect/poly/water.geojson")
@@ -99,13 +98,12 @@ async def clean_gapfill(params: WorkspaceParams):
         update_input_progress(upload_uuid, 70)
         logger.info("[gapfill] Progress updated to 70%%")
         trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
-        logger.info("[gapfill] Triggered next pipeline: 3_clean_noise_poly")
         return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
     finally:
-        gc.collect()
+        run_gc_cleanup("gapfill", upload_uuid)
 
 
 register_pipeline(

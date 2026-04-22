@@ -1,4 +1,3 @@
-import gc
 import asyncio
 from pathlib import Path
 
@@ -11,7 +10,7 @@ from rasterio.features import shapes
 from shapely.geometry import shape
 from tqdm import tqdm
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
@@ -107,13 +106,12 @@ async def vectorize_poly(params: WorkspaceParams):
         update_input_progress(upload_uuid, 55)
         logger.info("[poly] Progress updated to 55%%")
         trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
-        logger.info("[poly] Triggered next pipeline: 3_clean_gapfill")
         return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
     finally:
-        gc.collect()
+        run_gc_cleanup("poly", upload_uuid)
 
 
 register_pipeline(

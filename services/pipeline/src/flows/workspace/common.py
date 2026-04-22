@@ -1,6 +1,8 @@
+import gc
 from pathlib import Path
 from uuid import UUID
 
+from plombery import get_logger
 from pydantic import BaseModel, Field, validator
 
 
@@ -20,3 +22,15 @@ def workspace_paths(upload_uuid: str) -> tuple[Path, Path, Path]:
     data_dir = workspace_dir / "data"
     input_png = data_dir / "input.png"
     return workspace_dir, data_dir, input_png
+
+
+def run_gc_cleanup(flow_name: str, upload_uuid: str) -> int:
+    collected = gc.collect()
+    logger = get_logger()
+    logger.info(
+        "[%s] GC cleanup complete for uuid=%s (collected=%s)",
+        flow_name,
+        upload_uuid,
+        collected,
+    )
+    return collected
