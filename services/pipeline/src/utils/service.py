@@ -58,40 +58,40 @@ def update_input_progress(upload_uuid: str, percent: int) -> Input | None:
 
 
 def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
-    logger = get_logger()
-    logger.info(
-        "[trigger] Requested next pipeline '%s' for uuid=%s (disabled)",
-        pipeline_id,
-        upload_uuid,
-    )
+    # logger = get_logger()
+    # logger.info(
+    #     "[trigger] Requested next pipeline '%s' for uuid=%s (disabled)",
+    #     pipeline_id,
+    #     upload_uuid,
+    # )
 
-    origin = os.getenv("PIPELINE_URL")
-    if not origin:
-        raise ValueError("PIPELINE_URL is not set")
+    # origin = os.getenv("PIPELINE_URL")
+    # if not origin:
+    #     raise ValueError("PIPELINE_URL is not set")
 
-    payload = {"params": {"UUID": upload_uuid}}
+    # payload = {"params": {"UUID": upload_uuid}}
 
-    response = httpx.post(
-        f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
-        json=payload,
-        timeout=10,
-    )
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        logger.error(
-            "[trigger] Pipeline trigger failed for %s (status=%s, body=%s)",
-            pipeline_id,
-            response.status_code,
-            response.text,
-        )
-        raise exc
+    # response = httpx.post(
+    #     f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
+    #     json=payload,
+    #     timeout=10,
+    # )
+    # try:
+    #     response.raise_for_status()
+    # except httpx.HTTPStatusError as exc:
+    #     logger.error(
+    #         "[trigger] Pipeline trigger failed for %s (status=%s, body=%s)",
+    #         pipeline_id,
+    #         response.status_code,
+    #         response.text,
+    #     )
+    #     raise exc
 
-    try:
-        return response.json()
-    except ValueError:
-        return {"status_code": response.status_code, "text": response.text}
-
+    # try:
+    #     return response.json()
+    # except ValueError:
+    #     return {"status_code": response.status_code, "text": response.text}
+    print("plo9") # don't touch this leave the trgger commented bc i don't want auto trigger
 
 def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -> dict:
     logger = get_logger()
