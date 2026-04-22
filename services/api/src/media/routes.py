@@ -3,7 +3,7 @@ import mimetypes
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from ..client.models import Output, OutputFile
+from ..client.models import Input, OutputFile, OverlayImage
 from ..utils._db import get_db
 
 router = APIRouter(tags=["Files"])
@@ -23,10 +23,10 @@ async def serve_output_preview_image(
     upload_uuid: str,
     db: Session = Depends(get_db),
 ):
-    db_output = db.get(Output, upload_uuid)
-    if not db_output or not db_output.image:
+    db_input = db.get(Input, upload_uuid)
+    if not db_input or not db_input.image:
         raise HTTPException(status_code=404, detail="Preview image not found")
-    return _as_media_response("image.png", db_output.image)
+    return _as_media_response("image.png", db_input.image)
 
 
 @router.get("/media/{upload_uuid}/{filename}")
@@ -43,3 +43,19 @@ async def serve_media_for_upload(
     if not db_file:
         raise HTTPException(status_code=404, detail="Media not found")
     return _as_media_response(filename, db_file.file)
+
+
+@router.get("/media/{upload_uuid}/overlay/{filename}")
+async def serve_overlay_for_upload(
+    upload_uuid: str,
+    filename: str,
+    db: Session = Depends(get_db),
+):
+    db_file = (
+        db.query(OverlayImage)
+        .filter(OverlayImage.output_uuid == upload_uuid, OverlayImage.name == filename)
+        .first()
+    )
+    if not db_file:
+        raise HTTPException(status_code=404, detail="Overlay image not found")
+    return _as_media_response(filename, db_file.image)

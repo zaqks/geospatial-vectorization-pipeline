@@ -17,6 +17,7 @@ class UploadResponse(BaseModel):
 
 class ResultResponse(BaseModel):
     img_url: str
+    overlays: List[Tuple[str, str]]  # List of (overlay_name, url) tuples
     files: List[Tuple[str, str]]  # List of (filename, url) tuples
     status_percent: int
 

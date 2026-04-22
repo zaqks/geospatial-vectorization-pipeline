@@ -33,6 +33,12 @@ def build_upload_preview_url(upload_uuid: str, request: Request) -> str:
     safe_uuid = quote(upload_uuid, safe="")
     return build_media_url(f"/media/{safe_uuid}/preview/image.png", request)
 
+
+def build_upload_overlay_url(upload_uuid: str, filename: str, request: Request) -> str:
+    safe_uuid = quote(upload_uuid, safe="")
+    safe_filename = quote(filename, safe="")
+    return build_media_url(f"/media/{safe_uuid}/overlay/{safe_filename}", request)
+
 def _parse_bounding_box(bounding_box: str):
     try:
         payload = json.loads(bounding_box)
@@ -104,8 +110,13 @@ async def get_result(upload_uuid: str, request: Request, db: Session = Depends(g
         return ProcessingResponse(status_percent=db_input.percent_progress)
 
     output_files = db_output.output_files or []
+    overlay_images = db_output.overlay_images or []
     return ResultResponse(
         img_url=build_upload_preview_url(upload_uuid, request),
+        overlays=[
+            (img.name, build_upload_overlay_url(upload_uuid, img.name, request))
+            for img in overlay_images
+        ],
         files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in output_files],
         status_percent=db_input.percent_progress,
     )
