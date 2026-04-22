@@ -17,7 +17,6 @@ INPUT_COLORS_PATH = Path("data/colors.csv")
 INPUT_GEOJSON_DIR = Path("output/vect/line")
 OUTPUT_VIZ_DIR = Path("viz")
 
-EXCLUDED_COLORS = {(255, 0, 0)}
 
 
 def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
@@ -25,8 +24,6 @@ def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
     palette = []
     for _, row in df.iterrows():
         rgb = (int(row["r"]), int(row["g"]), int(row["b"]))
-        if rgb in EXCLUDED_COLORS:
-            continue
         palette.append(rgb)
     if not palette:
         raise ValueError(f"No usable colors found in {colors_path}")
@@ -90,7 +87,7 @@ async def viz_line_masks(params: WorkspaceParams):
             rgba[mask == 1] = [color[0], color[1], color[2], 255]
 
             layer_name = geojson_path.stem.replace(" ", "_")
-            output_name = f"{index:03d}_line_{layer_name}_mask.png"
+            output_name = f"{index}_line_{layer_name}_mask.png"
             output_path = output_viz_dir / output_name
             Image.fromarray(rgba).save(output_path, format="PNG", optimize=False)
             mask_count += 1
