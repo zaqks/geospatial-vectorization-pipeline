@@ -17,7 +17,6 @@ INPUT_COLORS_PATH = Path("data/colors.csv")
 INPUT_GEOJSON_DIR = Path("output/vect/poly")
 OUTPUT_VIZ_DIR = Path("viz")
 
-EXCLUDED_COLORS = {(255, 0, 0)}
 
 
 def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
@@ -25,8 +24,7 @@ def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
     palette = []
     for _, row in df.iterrows():
         rgb = (int(row["r"]), int(row["g"]), int(row["b"]))
-        if rgb in EXCLUDED_COLORS:
-            continue
+
         palette.append(rgb)
     if not palette:
         raise ValueError(f"No usable colors found in {colors_path}")
@@ -45,13 +43,17 @@ async def viz_poly_masks(params: WorkspaceParams):
     output_viz_dir = workspace_dir / OUTPUT_VIZ_DIR
 
     def _run() -> dict:
-        logger.info("[viz-poly] Starting polygon visualization masks for uuid=%s", upload_uuid)
+        logger.info(
+            "[viz-poly] Starting polygon visualization masks for uuid=%s", upload_uuid
+        )
         output_viz_dir.mkdir(parents=True, exist_ok=True)
 
         palette = _load_palette(input_colors_path)
         geojson_files = sorted(input_geojson_dir.glob("*.geojson"))
         if not geojson_files:
-            logger.info("[viz-poly] No polygon GeoJSON files found under %s", input_geojson_dir)
+            logger.info(
+                "[viz-poly] No polygon GeoJSON files found under %s", input_geojson_dir
+            )
             update_input_progress(upload_uuid, 95)
             trigger_result = tirrger_flow("5_export_output", upload_uuid)
             return {
@@ -91,13 +93,15 @@ async def viz_poly_masks(params: WorkspaceParams):
             rgba[mask == 1] = [color[0], color[1], color[2], 255]
 
             layer_name = geojson_path.stem.replace(" ", "_")
-            output_name = f"{index:03d}_poly_{layer_name}_mask.png"
+            output_name = f"{index}_poly_{layer_name}_mask.png"
             output_path = output_viz_dir / output_name
             Image.fromarray(rgba).save(output_path, format="PNG", optimize=False)
             mask_count += 1
 
         update_input_progress(upload_uuid, 95)
-        logger.info("[viz-poly] Generated %s polygon masks in %s", mask_count, output_viz_dir)
+        logger.info(
+            "[viz-poly] Generated %s polygon masks in %s", mask_count, output_viz_dir
+        )
         trigger_result = tirrger_flow("5_export_output", upload_uuid)
         return {
             "uuid": upload_uuid,
