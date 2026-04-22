@@ -1,8 +1,59 @@
 import uuid
+import json
+import os
+import time
+from urllib import error, request
 
 from sqlalchemy.orm import Session
 
 from .models import Input, Output
+
+
+DEFAULT_TRIGGER_TIMEOUT_SECONDS = 180
+DEFAULT_TRIGGER_RETRIES = 3
+FIRST_PIPELINE_ID = "0_setup_workspace"
+
+
+def trigger_pipeline_with_retry(
+    upload_uuid: str,
+    pipeline_id: str = FIRST_PIPELINE_ID,
+    timeout_seconds: int = DEFAULT_TRIGGER_TIMEOUT_SECONDS,
+    retries: int = DEFAULT_TRIGGER_RETRIES,
+) -> dict:
+    pipeline_url = os.getenv("PIPELINE_URL", "").rstrip("/")
+    if not pipeline_url:
+        raise ValueError("PIPELINE_URL is not set")
+
+    endpoint = f"{pipeline_url}/api/pipelines/{pipeline_id}/run"
+    payload = json.dumps({"params": {"UUID": upload_uuid}}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+
+    last_error: Exception | None = None
+    total_attempts = max(1, retries + 1)
+    for attempt in range(1, total_attempts + 1):
+        req = request.Request(endpoint, data=payload, headers=headers, method="POST")
+        try:
+            with request.urlopen(req, timeout=timeout_seconds) as response:
+                body = response.read().decode("utf-8")
+                try:
+                    parsed = json.loads(body) if body else {}
+                except json.JSONDecodeError:
+                    parsed = {"text": body}
+                return {
+                    "ok": True,
+                    "attempt": attempt,
+                    "status_code": response.status,
+                    "response": parsed,
+                }
+        except (error.HTTPError, error.URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt < total_attempts:
+                time.sleep(min(attempt, 3))
+
+    raise RuntimeError(
+        f"Failed to trigger pipeline '{pipeline_id}' for uuid={upload_uuid} "
+        f"after {total_attempts} attempts"
+    ) from last_error
 
 def save_mock_input(
     db: Session,
