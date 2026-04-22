@@ -14,6 +14,7 @@ CSV_PATH = "data/legend_class_geo.csv"
 TIFF_PATH = "data/el_harrach_georef.tif"
 GEOJSON_DIR = Path("output/vect/poly")
 OUTPUT_DIR = Path("output/viz")
+TARGET_CRS = "EPSG:3857"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -42,6 +43,9 @@ with rasterio.open(TIFF_PATH) as src:
         band = src.read(1).astype(np.uint8)
         rgb_base = np.stack([band, band, band], axis=-1)
 
+if str(crs) != TARGET_CRS:
+    raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
+
 # -----------------------
 # Load ALL GeoJSON once
 # -----------------------
@@ -64,8 +68,10 @@ for cls_name, z in z_map.items():
     if gdf.empty:
         continue
 
-    if gdf.crs != crs:
-        gdf = gdf.to_crs(crs)
+    if gdf.crs is None:
+        raise ValueError(f"{cls_name}.geojson has no CRS")
+    if str(gdf.crs) != TARGET_CRS:
+        raise ValueError(f"{cls_name}.geojson CRS must be {TARGET_CRS}, got {gdf.crs}")
 
     shapes.extend((geom, z) for geom in gdf.geometry)
 

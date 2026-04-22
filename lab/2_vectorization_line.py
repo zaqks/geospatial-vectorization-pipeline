@@ -21,7 +21,7 @@ CLOSING_RADIUS = 5 # 1.5
 MIN_OBJECT_SIZE_M2 = 500  # Minimum size in square meters
 MIN_LINE_LENGTH = 2   
 SIMPLIFY_TOLERANCE = 0.3 # 0.3
-EXPORT_TO_WGS84 = True
+TARGET_CRS = "EPSG:3857"
 
 # -------------------------
 # LEGEND & UTILS
@@ -46,6 +46,9 @@ with rasterio.open(raster_path) as src:
     # Calculate pixel area (assuming meters if CRS is projected)
     pixel_area = abs(transform[0] * transform[4]) 
     min_object_pixels = int(MIN_OBJECT_SIZE_M2 / pixel_area)
+
+if str(crs) != TARGET_CRS:
+    raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
 
 img_np = np.transpose(img, (1, 2, 0))[:, :, :3].astype(np.int16)
 
@@ -89,17 +92,13 @@ for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
     gdf = gdf[gdf.length > MIN_LINE_LENGTH]
     gdf["class"] = class_name
 
-    if EXPORT_TO_WGS84:
-        gdf = gdf.to_crs("EPSG:4326")
-
     class_name_safe = class_name.replace(" ", "_")
     out_geojson = os.path.join(output_dir, f"{class_name_safe}.geojson")
     gdf.to_file(out_geojson, driver="GeoJSON")
 
-    gdf_for_raster = gdf.to_crs(crs)
-    if not gdf_for_raster.empty:
+    if not gdf.empty:
         debug_mask = rasterize(
-            [(geom, 1) for geom in gdf_for_raster.geometry],
+            [(geom, 1) for geom in gdf.geometry],
             out_shape=(h, w), transform=transform, fill=0, dtype=np.uint8
         )
         out_img = np.zeros((h, w, 3), dtype=np.uint8)
