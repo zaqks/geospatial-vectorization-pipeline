@@ -93,6 +93,66 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
         return {"status_code": response.status_code, "text": response.text}
     # print("plo9") # don't touch this leave the trgger commented bc i don't want auto trigger
 
+
+async def tirrger_flow_async(
+    pipeline_id: str,
+    upload_uuid: str,
+    *,
+    timeout_seconds: float = 30,
+    allow_read_timeout_success: bool = False,
+) -> dict:
+    logger = get_logger()
+    logger.info(
+        "[trigger] Requested next pipeline '%s' for uuid=%s (async)",
+        pipeline_id,
+        upload_uuid,
+    )
+
+    origin = os.getenv("PIPELINE_URL")
+    if not origin:
+        raise ValueError("PIPELINE_URL is not set")
+
+    payload = {"params": {"UUID": upload_uuid}}
+    timeout = httpx.Timeout(connect=5.0, read=timeout_seconds, write=10.0, pool=5.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
+                json=payload,
+            )
+    except httpx.ReadTimeout as exc:
+        if not allow_read_timeout_success:
+            raise exc
+        logger.warning(
+            "[trigger] Read timeout while waiting for '%s' response for uuid=%s; "
+            "continuing because timeout is allowed for this handoff",
+            pipeline_id,
+            upload_uuid,
+        )
+        return {
+            "accepted": True,
+            "pipeline_id": pipeline_id,
+            "uuid": upload_uuid,
+            "warning": "read_timeout_while_waiting_for_response",
+        }
+
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "[trigger] Pipeline trigger failed for %s (status=%s, body=%s)",
+            pipeline_id,
+            response.status_code,
+            response.text,
+        )
+        raise exc
+
+    try:
+        return response.json()
+    except ValueError:
+        return {"status_code": response.status_code, "text": response.text}
+
 def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -> dict:
     logger = get_logger()
     db = SessionLocal()
