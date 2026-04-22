@@ -47,7 +47,7 @@
   </nav>
 
   <main>
-    <section class="hero">
+    <section class="hero" id="hero-section">
       <div class="hero-left">
         <div class="hero-tag">Geospatial Vectorization Studio</div>
         <h1>Turn raster maps<br />into <span>vector</span><br />outputs.</h1>
@@ -84,8 +84,8 @@
     </section>
 
     <section class="app-section" id="app">
-      <div class="section-label">// Studio</div>
-      <div class="section-title">Vectorize your map</div>
+      <div class="section-label studio-only">// Studio</div>
+      <div class="section-title studio-only">Vectorize your map</div>
 
       <div class="app-shell">
         <div class="app-topbar">
@@ -156,8 +156,14 @@
             </div>
 
             <figure class="result-figure">
-              <img id="result-image" alt="Processed map result" />
+              <div class="result-map-stack" id="result-map-stack">
+                <img id="result-image" alt="Processed map result" />
+                <div id="result-overlays" class="result-overlays"></div>
+              </div>
             </figure>
+
+            <div class="panel-heading">Overlays</div>
+            <ul id="overlay-list" class="overlay-list"></ul>
 
             <div class="shapefiles-header">
               <div class="panel-heading">Downloads</div>
