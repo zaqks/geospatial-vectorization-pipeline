@@ -3,6 +3,8 @@ from pathlib import Path
 
 from plombery import get_logger
 from pydantic import BaseModel
+from sqlalchemy import delete, select
+from sqlalchemy.orm import load_only
 
 from ._db import SessionLocal
 from .models import Input, Output, OutputFile
@@ -10,6 +12,9 @@ from .models import Input, Output, OutputFile
 
 import os
 import httpx
+
+
+GEOJSON_INSERT_BATCH_SIZE = 8
 
 
 class GeorefBounds(BaseModel):
@@ -92,10 +97,6 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
     logger = get_logger()
     db = SessionLocal()
     try:
-        db_input = db.get(Input, upload_uuid)
-        if not db_input:
-            raise ValueError(f"Upload not found for uuid={upload_uuid}")
-
         if not workspace_output_dir.exists():
             raise FileNotFoundError(
                 f"Workspace output directory not found: {workspace_output_dir}"
@@ -103,31 +104,36 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
 
         # Prefer the normalized workspace PNG for output preview/storage.
         workspace_input_png = workspace_output_dir.parent / "data" / "input.png"
-        output_image_bytes = (
-            workspace_input_png.read_bytes()
-            if workspace_input_png.exists()
-            else db_input.image
-        )
-
-        geojson_paths = sorted(workspace_output_dir.rglob("*.geojson"))
-        if not geojson_paths:
-            raise FileNotFoundError(
-                f"No GeoJSON files found under {workspace_output_dir}"
+        output_image_bytes: bytes
+        if workspace_input_png.exists():
+            upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
+            if not upload_exists:
+                raise ValueError(f"Upload not found for uuid={upload_uuid}")
+            output_image_bytes = workspace_input_png.read_bytes()
+        else:
+            # Only load the large image BLOB if workspace PNG is unavailable.
+            output_image_bytes = db.scalar(
+                select(Input.image).where(Input.uuid == upload_uuid)
             )
+            if output_image_bytes is None:
+                raise ValueError(f"Upload not found for uuid={upload_uuid}")
 
-        db_output = db.get(Output, upload_uuid)
+        db_output = db.scalar(
+            select(Output).options(load_only(Output.uuid)).where(Output.uuid == upload_uuid)
+        )
         if not db_output:
             db_output = Output(uuid=upload_uuid, image=output_image_bytes)
             db.add(db_output)
             db.flush()
         else:
             db_output.image = output_image_bytes
-            for existing in list(db_output.output_files):
-                db.delete(existing)
+            # Bulk delete avoids materializing previous OutputFile.file BLOBs.
+            db.execute(delete(OutputFile).where(OutputFile.output_uuid == upload_uuid))
             db.flush()
 
         inserted_count = 0
-        for geojson_path in geojson_paths:
+        batch_count = 0
+        for geojson_path in workspace_output_dir.rglob("*.geojson"):
             relative_path = geojson_path.relative_to(workspace_output_dir)
             stored_name = str(relative_path).replace("/", "__")
             file_bytes = geojson_path.read_bytes()
@@ -135,6 +141,21 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
                 OutputFile(output_uuid=upload_uuid, name=stored_name, file=file_bytes)
             )
             inserted_count += 1
+            batch_count += 1
+
+            if batch_count >= GEOJSON_INSERT_BATCH_SIZE:
+                db.flush()
+                db.expunge_all()
+                batch_count = 0
+
+        if inserted_count == 0:
+            raise FileNotFoundError(
+                f"No GeoJSON files found under {workspace_output_dir}"
+            )
+
+        if batch_count:
+            db.flush()
+            db.expunge_all()
 
         db.commit()
         logger.info(
