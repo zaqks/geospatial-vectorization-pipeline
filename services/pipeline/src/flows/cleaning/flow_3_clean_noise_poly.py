@@ -3,11 +3,8 @@ import asyncio
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import rasterio
-from PIL import Image
-from plombery import register_pipeline, task
-from rasterio.features import rasterize
+from plombery import get_logger, register_pipeline, task
 from shapely.validation import make_valid
 from tqdm import tqdm
 
@@ -77,6 +74,7 @@ def clean_and_debug_vector(
 
 @task
 async def clean_noise_poly(params: WorkspaceParams):
+    logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
@@ -85,9 +83,11 @@ async def clean_noise_poly(params: WorkspaceParams):
     reference_raster_path = workspace_dir / REFERENCE_RASTER_PATH
 
     def _run() -> dict:
+        logger.info("[noise] Starting polygon cleaning for uuid=%s", upload_uuid)
         output_folder.mkdir(parents=True, exist_ok=True)
 
         geojson_files = list(input_folder.glob("*.geojson"))
+        logger.info("[noise] Found %s GeoJSON files to clean", len(geojson_files))
 
         for geojson_path in tqdm(geojson_files, desc="Cleaning polygon geojson"):
             clean_and_debug_vector(
@@ -96,9 +96,12 @@ async def clean_noise_poly(params: WorkspaceParams):
                 min_area_m2=MIN_AREA_M2,
                 reference_raster_path=reference_raster_path,
             )
+            logger.info("[noise] Cleaned %s", geojson_path.name)
 
         update_input_progress(upload_uuid, 90)
+        logger.info("[noise] Progress updated to 90%%")
         trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
+        logger.info("[noise] Triggered next pipeline: 5_clean_workspace")
         return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
 
     try:

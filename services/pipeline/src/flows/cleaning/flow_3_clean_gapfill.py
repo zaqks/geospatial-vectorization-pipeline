@@ -3,11 +3,8 @@ import asyncio
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import rasterio
-from PIL import Image
-from plombery import register_pipeline, task
-from rasterio.features import rasterize
+from plombery import get_logger, register_pipeline, task
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
@@ -33,6 +30,7 @@ def remove_holes(geom):
 
 @task
 async def clean_gapfill(params: WorkspaceParams):
+    logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
@@ -42,6 +40,7 @@ async def clean_gapfill(params: WorkspaceParams):
     reference_raster_path = workspace_dir / REFERENCE_RASTER_PATH
 
     def _run() -> dict:
+        logger.info("[gapfill] Starting water gapfill for uuid=%s", upload_uuid)
         output_geojson_path.parent.mkdir(parents=True, exist_ok=True)
 
         gdf = gpd.read_file(input_geojson_path)
@@ -81,6 +80,7 @@ async def clean_gapfill(params: WorkspaceParams):
         out_gdf = gpd.GeoDataFrame(geometry=[filled], crs=gdf.crs)
         out_gdf["class"] = "water"
         out_gdf.to_file(output_geojson_path, driver="GeoJSON")
+        logger.info("[gapfill] Exported cleaned water GeoJSON to %s", output_geojson_path)
 
         # mask = rasterize(
         #     [(filled, 1)],
@@ -97,7 +97,9 @@ async def clean_gapfill(params: WorkspaceParams):
         # Image.fromarray(out).save(output_mask_path)
 
         update_input_progress(upload_uuid, 70)
+        logger.info("[gapfill] Progress updated to 70%%")
         trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
+        logger.info("[gapfill] Triggered next pipeline: 3_clean_noise_poly")
         return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}
 
     try:

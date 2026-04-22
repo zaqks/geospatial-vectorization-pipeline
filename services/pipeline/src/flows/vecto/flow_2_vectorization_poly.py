@@ -6,9 +6,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from PIL import Image
-from plombery import register_pipeline, task
-from rasterio.features import rasterize, shapes
+from plombery import get_logger, register_pipeline, task
+from rasterio.features import shapes
 from shapely.geometry import shape
 from tqdm import tqdm
 
@@ -23,6 +22,7 @@ EXPORT_TO_WGS84 = True
 
 @task
 async def vectorize_poly(params: WorkspaceParams):
+    logger = get_logger()
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
@@ -31,6 +31,7 @@ async def vectorize_poly(params: WorkspaceParams):
     output_dir = workspace_dir / OUTPUT_DIR
 
     def _run() -> dict:
+        logger.info("[poly] Starting polygon vectorization for uuid=%s", upload_uuid)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         df = pd.read_csv(input_legend_path)
@@ -42,6 +43,7 @@ async def vectorize_poly(params: WorkspaceParams):
 
         rgb_to_class = {hex_to_rgb(row["hex"]): row["class"] for _, row in df.iterrows()}
         classes = list(rgb_to_class.values())
+        logger.info("[poly] Found %s polygon classes to process", len(classes))
 
         class_map = {
             (r << 16 | g << 8 | b): i for i, ((r, g, b), _) in enumerate(rgb_to_class.items())
@@ -85,6 +87,7 @@ async def vectorize_poly(params: WorkspaceParams):
                 gdf = gdf.to_crs("EPSG:4326")
 
             gdf.to_file(output_dir / f"{class_name}.geojson", driver="GeoJSON")
+            logger.info("[poly] Exported %s with %s features", class_name, len(gdf))
 
         # for class_name, geoms in tqdm(results.items(), desc="Export polygon debug"):
         #     if not geoms:
@@ -102,7 +105,9 @@ async def vectorize_poly(params: WorkspaceParams):
         #     Image.fromarray(out).save(output_dir / f"{class_name}.png")
 
         update_input_progress(upload_uuid, 55)
+        logger.info("[poly] Progress updated to 55%%")
         trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
+        logger.info("[poly] Triggered next pipeline: 3_clean_gapfill")
         return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
 
     try:
