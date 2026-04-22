@@ -22,8 +22,19 @@ output_tif = "./data/el_harrach_georef.tif"
 place_name = "El Harrach, Algeria"
 
 # Bounding box (EPSG:4326 - lat/lon)
-south, north, west, east = 36.6931181, 36.7309185, 3.1148535, 3.1639197
-# 36.6931181, 3.1148535, 36.7309185, 3.1639197
+# south, north, west, east = 36.6931181, 36.7309185, 3.1148535, 3.1639197
+# 36.6931181, 3.1148535, 36.7309185, 3.1639197 this is the old one
+
+# this is the new one
+south, north, west, east = (
+    36.69154743547263,
+    36.732280756072015,
+    3.113250732421875,
+    3.165435791015625
+)
+# this is the fixed one
+# 36.69154743547263, 3.113250732421875, 36.732280756072015, 3.165435791015625
+
 
 # mini map: 
 # 36.7120183, 3.1148535, 36.7309185, 3.1393866
@@ -100,9 +111,6 @@ with rasterio.open(
     dst.write(img_np[:, :, 2], 3)
 
 print("Saved GeoTIFF:", output_tif)
-
-
-# In[ ]:
 
 
 
