@@ -13,6 +13,7 @@ from .common import WorkspaceParams, workspace_paths
 
 
 LEGEND_SOURCE_PATH = Path("/app/src/data/legend_class_geo.csv")
+COLORS_SOURCE_PATH = Path("/app/src/data/colors.csv")
 
 
 @task
@@ -61,15 +62,25 @@ async def init_legend(params: WorkspaceParams):
 
     if not LEGEND_SOURCE_PATH.exists():
         raise FileNotFoundError(f"Legend source file not found at {LEGEND_SOURCE_PATH}")
+    if not COLORS_SOURCE_PATH.exists():
+        raise FileNotFoundError(f"Colors source file not found at {COLORS_SOURCE_PATH}")
 
     legend_target_path = data_dir / "legend_class_geo.csv"
+    colors_target_path = data_dir / "colors.csv"
     await asyncio.to_thread(shutil.copy2, LEGEND_SOURCE_PATH, legend_target_path)
+    await asyncio.to_thread(shutil.copy2, COLORS_SOURCE_PATH, colors_target_path)
     trigger_result = await asyncio.to_thread(tirrger_flow, "1_georef", upload_uuid)
 
-    logger.info("Legend initialized at %s", legend_target_path)
+    logger.info(
+        "Workspace data initialized at %s (legend=%s, colors=%s)",
+        data_dir,
+        legend_target_path.name,
+        colors_target_path.name,
+    )
     return {
         "uuid": upload_uuid,
         "legend_csv": str(legend_target_path),
+        "colors_csv": str(colors_target_path),
         "next": "1_georef",
         "trigger": trigger_result,
     }

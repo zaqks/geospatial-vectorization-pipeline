@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import load_only
 
 from ._db import SessionLocal
-from .models import Input, Output, OutputFile
+from .models import Input, Output, OutputFile, OverlayImage
 
 
 import os
@@ -74,7 +74,7 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     response = httpx.post(
         f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
         json=payload,
-        timeout=600.0,
+        timeout=10,
     )
     try:
         response.raise_for_status()
@@ -102,33 +102,21 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
                 f"Workspace output directory not found: {workspace_output_dir}"
             )
 
-        # Prefer the normalized workspace PNG for output preview/storage.
-        workspace_input_png = workspace_output_dir.parent / "data" / "input.png"
-        output_image_bytes: bytes
-        if workspace_input_png.exists():
-            upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
-            if not upload_exists:
-                raise ValueError(f"Upload not found for uuid={upload_uuid}")
-            output_image_bytes = workspace_input_png.read_bytes()
-        else:
-            # Only load the large image BLOB if workspace PNG is unavailable.
-            output_image_bytes = db.scalar(
-                select(Input.image).where(Input.uuid == upload_uuid)
-            )
-            if output_image_bytes is None:
-                raise ValueError(f"Upload not found for uuid={upload_uuid}")
+        upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
+        if not upload_exists:
+            raise ValueError(f"Upload not found for uuid={upload_uuid}")
 
         db_output = db.scalar(
             select(Output).options(load_only(Output.uuid)).where(Output.uuid == upload_uuid)
         )
         if not db_output:
-            db_output = Output(uuid=upload_uuid, image=output_image_bytes)
+            db_output = Output(uuid=upload_uuid)
             db.add(db_output)
             db.flush()
         else:
-            db_output.image = output_image_bytes
             # Bulk delete avoids materializing previous OutputFile.file BLOBs.
             db.execute(delete(OutputFile).where(OutputFile.output_uuid == upload_uuid))
+            db.execute(delete(OverlayImage).where(OverlayImage.output_uuid == upload_uuid))
             db.flush()
 
         inserted_count = 0
@@ -153,25 +141,35 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
                 f"No GeoJSON files found under {workspace_output_dir}"
             )
 
+        workspace_viz_dir = workspace_output_dir.parent / "viz"
+        overlay_count = 0
+        if workspace_viz_dir.exists():
+            for overlay_path in sorted(workspace_viz_dir.glob("*.png")):
+                db.add(
+                    OverlayImage(
+                        output_uuid=upload_uuid,
+                        name=overlay_path.name,
+                        image=overlay_path.read_bytes(),
+                    )
+                )
+                overlay_count += 1
+
         if batch_count:
             db.flush()
             db.expunge_all()
 
         db.commit()
         logger.info(
-            "[export] Upserted output for uuid=%s with %s GeoJSON files",
+            "[export] Upserted output for uuid=%s with %s GeoJSON files and %s overlays",
             upload_uuid,
             inserted_count,
+            overlay_count,
         )
         return {
             "uuid": upload_uuid,
             "output_uuid": upload_uuid,
             "geojson_count": inserted_count,
-            "image_source": (
-                "workspace.data/input.png"
-                if workspace_input_png.exists()
-                else "input.image"
-            ),
+            "overlay_count": overlay_count,
         }
     finally:
         db.close()
@@ -200,30 +198,20 @@ def upsert_output_archive_from_workspace(
         if not archive_path.exists():
             raise FileNotFoundError(f"Output archive not found: {archive_path}")
 
-        workspace_input_png = workspace_output_dir.parent / "data" / "input.png"
-        output_image_bytes: bytes
-        if workspace_input_png.exists():
-            upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
-            if not upload_exists:
-                raise ValueError(f"Upload not found for uuid={upload_uuid}")
-            output_image_bytes = workspace_input_png.read_bytes()
-        else:
-            output_image_bytes = db.scalar(
-                select(Input.image).where(Input.uuid == upload_uuid)
-            )
-            if output_image_bytes is None:
-                raise ValueError(f"Upload not found for uuid={upload_uuid}")
+        upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
+        if not upload_exists:
+            raise ValueError(f"Upload not found for uuid={upload_uuid}")
 
         db_output = db.scalar(
             select(Output).options(load_only(Output.uuid)).where(Output.uuid == upload_uuid)
         )
         if not db_output:
-            db_output = Output(uuid=upload_uuid, image=output_image_bytes)
+            db_output = Output(uuid=upload_uuid)
             db.add(db_output)
             db.flush()
         else:
-            db_output.image = output_image_bytes
             db.execute(delete(OutputFile).where(OutputFile.output_uuid == upload_uuid))
+            db.execute(delete(OverlayImage).where(OverlayImage.output_uuid == upload_uuid))
             db.flush()
 
         archive_bytes = archive_path.read_bytes()
@@ -235,22 +223,32 @@ def upsert_output_archive_from_workspace(
             )
         )
 
+        workspace_viz_dir = workspace_output_dir.parent / "viz"
+        overlay_count = 0
+        if workspace_viz_dir.exists():
+            for overlay_path in sorted(workspace_viz_dir.glob("*.png")):
+                db.add(
+                    OverlayImage(
+                        output_uuid=upload_uuid,
+                        name=overlay_path.name,
+                        image=overlay_path.read_bytes(),
+                    )
+                )
+                overlay_count += 1
+
         db.commit()
         logger.info(
-            "[export] Upserted output archive for uuid=%s as %s",
+            "[export] Upserted output archive for uuid=%s as %s with %s overlays",
             upload_uuid,
             archive_path.name,
+            overlay_count,
         )
         return {
             "uuid": upload_uuid,
             "output_uuid": upload_uuid,
             "archive_name": archive_path.name,
             "archive_size": len(archive_bytes),
-            "image_source": (
-                "workspace.data/input.png"
-                if workspace_input_png.exists()
-                else "input.image"
-            ),
+            "overlay_count": overlay_count,
         }
     finally:
         db.close()
