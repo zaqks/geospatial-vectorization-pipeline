@@ -96,9 +96,8 @@ async def vectorize_line(params: WorkspaceParams):
 
             if EXPORT_TO_WGS84:
                 gdf = gdf.to_crs("EPSG:4326")
-
-            class_name_safe = class_name.replace(" ", "_")
-            out_geojson = output_dir / f"{class_name_safe}.geojson"
+            
+            out_geojson = output_dir / f"{class_name}.geojson"
             gdf.to_file(out_geojson, driver="GeoJSON")
             logger.info(
                 "[line] Exported %s with %s features to %s",
