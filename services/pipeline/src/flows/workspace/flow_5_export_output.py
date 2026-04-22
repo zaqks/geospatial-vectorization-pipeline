@@ -12,6 +12,7 @@ from ...utils.service import (
 from .common import WorkspaceParams, run_gc_cleanup, workspace_paths
 
 WORKSPACE_OUTPUT_DIR = Path("output")
+WORKSPACE_VIZ_DIR = Path("viz")
 OUTPUT_ARCHIVE_NAME = "output.zip"
 
 
@@ -49,10 +50,21 @@ async def export_output(params: WorkspaceParams):
     upload_uuid = params.uuid
     workspace_dir, _, _ = workspace_paths(upload_uuid)
     workspace_output_dir = workspace_dir / WORKSPACE_OUTPUT_DIR
+    workspace_viz_dir = workspace_dir / WORKSPACE_VIZ_DIR
     archive_path = workspace_dir / OUTPUT_ARCHIVE_NAME
 
     async def _run() -> dict:
         logger.info("[export] Starting output export for uuid=%s", upload_uuid)
+        if not workspace_viz_dir.exists():
+            raise FileNotFoundError(f"Workspace viz directory not found: {workspace_viz_dir}")
+
+        overlay_masks = sorted(workspace_viz_dir.glob("*.png"))
+        logger.info(
+            "[export] Found %s overlay masks under %s",
+            len(overlay_masks),
+            workspace_viz_dir,
+        )
+
         export_result = await upsert_output_archive_from_workspace_async(
             upload_uuid,
             workspace_output_dir,
@@ -66,6 +78,7 @@ async def export_output(params: WorkspaceParams):
         return {
             "uuid": upload_uuid,
             "export": export_result,
+            "overlay_masks_found": len(overlay_masks),
             "next": "6_clean_workspace",
             "trigger": trigger_result,
         }
