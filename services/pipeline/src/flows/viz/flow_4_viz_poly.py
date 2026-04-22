@@ -13,6 +13,7 @@ from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_TIFF_PATH = Path("data/georef.tif")
+INPUT_LEGEND_PATH = Path("data/legend_class_geo.csv")
 INPUT_COLORS_PATH = Path("data/colors.csv")
 INPUT_GEOJSON_DIR = Path("output/vect/poly")
 OUTPUT_VIZ_DIR = Path("viz")
@@ -31,6 +32,14 @@ def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
     return palette
 
 
+def _load_class_z_map(legend_path: Path) -> dict[str, int]:
+    df = pd.read_csv(legend_path).dropna(subset=["class", "z"])
+    class_z_map = {str(row["class"]): int(row["z"]) for _, row in df.iterrows()}
+    if not class_z_map:
+        raise ValueError(f"No usable legend classes found in {legend_path}")
+    return class_z_map
+
+
 @task
 async def viz_poly_masks(params: WorkspaceParams):
     logger = get_logger()
@@ -38,6 +47,7 @@ async def viz_poly_masks(params: WorkspaceParams):
     workspace_dir, _, _ = workspace_paths(upload_uuid)
 
     input_tiff_path = workspace_dir / INPUT_TIFF_PATH
+    input_legend_path = workspace_dir / INPUT_LEGEND_PATH
     input_colors_path = workspace_dir / INPUT_COLORS_PATH
     input_geojson_dir = workspace_dir / INPUT_GEOJSON_DIR
     output_viz_dir = workspace_dir / OUTPUT_VIZ_DIR
@@ -49,6 +59,7 @@ async def viz_poly_masks(params: WorkspaceParams):
         output_viz_dir.mkdir(parents=True, exist_ok=True)
 
         palette = _load_palette(input_colors_path)
+        class_z_map = _load_class_z_map(input_legend_path)
         geojson_files = sorted(input_geojson_dir.glob("*.geojson"))
         if not geojson_files:
             logger.info(
@@ -92,8 +103,12 @@ async def viz_poly_masks(params: WorkspaceParams):
             color = palette[index % len(palette)]
             rgba[mask == 1] = [color[0], color[1], color[2], 255]
 
-            layer_name = geojson_path.stem.replace(" ", "_")
-            output_name = f"{index}_poly_{layer_name}_mask.png"
+            class_name = geojson_path.stem
+            z_index = class_z_map.get(class_name)
+            if z_index is None:
+                raise ValueError(f"No legend z value found for class '{class_name}'")
+
+            output_name = f"{z_index}_{class_name}_mask.png"
             output_path = output_viz_dir / output_name
             Image.fromarray(rgba).save(output_path, format="PNG", optimize=False)
             mask_count += 1
