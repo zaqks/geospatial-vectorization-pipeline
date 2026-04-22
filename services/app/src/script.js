@@ -245,21 +245,35 @@ function updateSubmitState() {
   submitBtn.disabled = !isUploadReady();
 }
 
+function extractOverlayId(name) {
+  const match = /^id_(\d+)(?:_|$)/i.exec(String(name || ""));
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Number.parseInt(match[1], 10);
+}
+
 function renderResult(data) {
   const imageUrl = buildUrl(data.img_url || "");
   resultImage.src = imageUrl;
   resultOverlays.innerHTML = "";
   overlayList.innerHTML = "";
 
-  const overlays = Array.isArray(data.overlays) ? data.overlays : [];
-  overlays.forEach((entry, index) => {
-    if (!Array.isArray(entry) || entry.length < 2) {
-      return;
-    }
+  const overlays = (Array.isArray(data.overlays) ? data.overlays : [])
+    .filter((entry) => Array.isArray(entry) && entry.length >= 2)
+    .map((entry, index) => {
+      const [name, link] = entry;
+      return {
+        name: String(name || `overlay-${index + 1}`),
+        link: String(link || ""),
+        overlayId: extractOverlayId(name),
+      };
+    })
+    .sort((a, b) => a.overlayId - b.overlayId);
 
-    const [name, link] = entry;
-    const label = String(name || `overlay-${index + 1}`);
-    const overlayUrl = buildUrl(String(link));
+  overlays.forEach((entry, index) => {
+    const label = entry.name;
+    const overlayUrl = buildUrl(entry.link);
     const overlayId = `overlay-${index}`;
 
     const overlayImg = document.createElement("img");
@@ -267,6 +281,9 @@ function renderResult(data) {
     overlayImg.alt = label;
     overlayImg.className = "result-overlay-image";
     overlayImg.dataset.overlayId = overlayId;
+    if (Number.isFinite(entry.overlayId)) {
+      overlayImg.style.zIndex = String(entry.overlayId);
+    }
     resultOverlays.appendChild(overlayImg);
 
     const li = document.createElement("li");
