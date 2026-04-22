@@ -101,6 +101,14 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
                 f"Workspace output directory not found: {workspace_output_dir}"
             )
 
+        # Prefer the normalized workspace PNG for output preview/storage.
+        workspace_input_png = workspace_output_dir.parent / "data" / "input.png"
+        output_image_bytes = (
+            workspace_input_png.read_bytes()
+            if workspace_input_png.exists()
+            else db_input.image
+        )
+
         geojson_paths = sorted(workspace_output_dir.rglob("*.geojson"))
         if not geojson_paths:
             raise FileNotFoundError(
@@ -109,11 +117,11 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
 
         db_output = db.get(Output, upload_uuid)
         if not db_output:
-            db_output = Output(uuid=upload_uuid, image=db_input.image)
+            db_output = Output(uuid=upload_uuid, image=output_image_bytes)
             db.add(db_output)
             db.flush()
         else:
-            db_output.image = db_input.image
+            db_output.image = output_image_bytes
             for existing in list(db_output.output_files):
                 db.delete(existing)
             db.flush()
@@ -138,7 +146,11 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
             "uuid": upload_uuid,
             "output_uuid": upload_uuid,
             "geojson_count": inserted_count,
-            "image_source": "input.image",
+            "image_source": (
+                "workspace.data/input.png"
+                if workspace_input_png.exists()
+                else "input.image"
+            ),
         }
     finally:
         db.close()
