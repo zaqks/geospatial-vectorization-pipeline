@@ -105,8 +105,8 @@ async def vectorize_poly(params: WorkspaceParams):
 
         update_input_progress(upload_uuid, 55)
         logger.info("[poly] Progress updated to 55%%")
-        trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
-        return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
+        trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
+        return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
