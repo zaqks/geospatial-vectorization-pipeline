@@ -185,5 +185,89 @@ async def upsert_output_from_workspace_async(
     )
 
 
+def upsert_output_archive_from_workspace(
+    upload_uuid: str,
+    workspace_output_dir: Path,
+    archive_path: Path,
+) -> dict:
+    logger = get_logger()
+    db = SessionLocal()
+    try:
+        if not workspace_output_dir.exists():
+            raise FileNotFoundError(
+                f"Workspace output directory not found: {workspace_output_dir}"
+            )
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Output archive not found: {archive_path}")
+
+        workspace_input_png = workspace_output_dir.parent / "data" / "input.png"
+        output_image_bytes: bytes
+        if workspace_input_png.exists():
+            upload_exists = db.scalar(select(Input.uuid).where(Input.uuid == upload_uuid))
+            if not upload_exists:
+                raise ValueError(f"Upload not found for uuid={upload_uuid}")
+            output_image_bytes = workspace_input_png.read_bytes()
+        else:
+            output_image_bytes = db.scalar(
+                select(Input.image).where(Input.uuid == upload_uuid)
+            )
+            if output_image_bytes is None:
+                raise ValueError(f"Upload not found for uuid={upload_uuid}")
+
+        db_output = db.scalar(
+            select(Output).options(load_only(Output.uuid)).where(Output.uuid == upload_uuid)
+        )
+        if not db_output:
+            db_output = Output(uuid=upload_uuid, image=output_image_bytes)
+            db.add(db_output)
+            db.flush()
+        else:
+            db_output.image = output_image_bytes
+            db.execute(delete(OutputFile).where(OutputFile.output_uuid == upload_uuid))
+            db.flush()
+
+        archive_bytes = archive_path.read_bytes()
+        db.add(
+            OutputFile(
+                output_uuid=upload_uuid,
+                name=archive_path.name,
+                file=archive_bytes,
+            )
+        )
+
+        db.commit()
+        logger.info(
+            "[export] Upserted output archive for uuid=%s as %s",
+            upload_uuid,
+            archive_path.name,
+        )
+        return {
+            "uuid": upload_uuid,
+            "output_uuid": upload_uuid,
+            "archive_name": archive_path.name,
+            "archive_size": len(archive_bytes),
+            "image_source": (
+                "workspace.data/input.png"
+                if workspace_input_png.exists()
+                else "input.image"
+            ),
+        }
+    finally:
+        db.close()
+
+
+async def upsert_output_archive_from_workspace_async(
+    upload_uuid: str,
+    workspace_output_dir: Path,
+    archive_path: Path,
+) -> dict:
+    return await asyncio.to_thread(
+        upsert_output_archive_from_workspace,
+        upload_uuid,
+        workspace_output_dir,
+        archive_path,
+    )
+
+
 async def update_input_progress_async(upload_uuid: str, percent: int) -> Input | None:
     return await asyncio.to_thread(update_input_progress, upload_uuid, percent)
