@@ -8,6 +8,10 @@ from ._db import SessionLocal
 from .models import Input, Output, OutputFile
 
 
+import os
+import httpx
+
+
 class GeorefBounds(BaseModel):
     lat1: float
     lat2: float
@@ -56,27 +60,32 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
         upload_uuid,
     )
 
-    # origin = os.getenv("PIPELINE_URL")
-    # if not origin:
-    #     raise ValueError("PIPELINE_URL is not set")
+    origin = os.getenv("PIPELINE_URL")
+    if not origin:
+        raise ValueError("PIPELINE_URL is not set")
 
-    # response = httpx.post(
-    #     f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
-    #     json={"params": {"uuid": upload_uuid}},
-    #     timeout=60.0,
-    # )
-    # response.raise_for_status()
+    payload = {"params": {"UUID": upload_uuid}}
 
-    # try:
-    #     return response.json()
-    # except ValueError:
-    #     return {"status_code": response.status_code, "text": response.text}
-    return {
-        "pipeline_id": pipeline_id,
-        "uuid": upload_uuid,
-        "triggered": False,
-        "reason": "disabled",
-    }
+    response = httpx.post(
+        f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
+        json=payload,
+        timeout=60.0,
+    )
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "[trigger] Pipeline trigger failed for %s (status=%s, body=%s)",
+            pipeline_id,
+            response.status_code,
+            response.text,
+        )
+        raise exc
+
+    try:
+        return response.json()
+    except ValueError:
+        return {"status_code": response.status_code, "text": response.text}
 
 
 def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -> dict:
@@ -88,11 +97,15 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
             raise ValueError(f"Upload not found for uuid={upload_uuid}")
 
         if not workspace_output_dir.exists():
-            raise FileNotFoundError(f"Workspace output directory not found: {workspace_output_dir}")
+            raise FileNotFoundError(
+                f"Workspace output directory not found: {workspace_output_dir}"
+            )
 
         geojson_paths = sorted(workspace_output_dir.rglob("*.geojson"))
         if not geojson_paths:
-            raise FileNotFoundError(f"No GeoJSON files found under {workspace_output_dir}")
+            raise FileNotFoundError(
+                f"No GeoJSON files found under {workspace_output_dir}"
+            )
 
         db_output = db.get(Output, upload_uuid)
         if not db_output:
@@ -110,7 +123,9 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
             relative_path = geojson_path.relative_to(workspace_output_dir)
             stored_name = str(relative_path).replace("/", "__")
             file_bytes = geojson_path.read_bytes()
-            db.add(OutputFile(output_uuid=upload_uuid, name=stored_name, file=file_bytes))
+            db.add(
+                OutputFile(output_uuid=upload_uuid, name=stored_name, file=file_bytes)
+            )
             inserted_count += 1
 
         db.commit()
@@ -129,8 +144,12 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
         db.close()
 
 
-async def upsert_output_from_workspace_async(upload_uuid: str, workspace_output_dir: Path) -> dict:
-    return await asyncio.to_thread(upsert_output_from_workspace, upload_uuid, workspace_output_dir)
+async def upsert_output_from_workspace_async(
+    upload_uuid: str, workspace_output_dir: Path
+) -> dict:
+    return await asyncio.to_thread(
+        upsert_output_from_workspace, upload_uuid, workspace_output_dir
+    )
 
 
 async def update_input_progress_async(upload_uuid: str, percent: int) -> Input | None:
