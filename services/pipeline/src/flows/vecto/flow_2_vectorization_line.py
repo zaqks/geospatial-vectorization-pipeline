@@ -1,4 +1,3 @@
-import gc
 import asyncio
 from pathlib import Path
 
@@ -12,7 +11,7 @@ from shapely.geometry import shape
 from skimage.morphology import closing, disk, remove_small_objects, skeletonize
 from tqdm import tqdm
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
@@ -124,13 +123,12 @@ async def vectorize_line(params: WorkspaceParams):
         update_input_progress(upload_uuid, 25)
         logger.info("[line] Progress updated to 25%%")
         trigger_result = tirrger_flow("2_vectorization_dotted", upload_uuid)
-        logger.info("[line] Triggered next pipeline: 2_vectorization_dotted")
         return {"uuid": upload_uuid, "next": "2_vectorization_dotted", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
     finally:
-        gc.collect()
+        run_gc_cleanup("line", upload_uuid)
 
 
 register_pipeline(

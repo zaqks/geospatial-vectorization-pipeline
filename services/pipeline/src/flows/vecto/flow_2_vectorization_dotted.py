@@ -1,4 +1,3 @@
-import gc
 import asyncio
 from pathlib import Path
 
@@ -13,7 +12,7 @@ from scipy.spatial import KDTree
 from shapely.geometry import LineString, shape
 from skimage.morphology import skeletonize
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
@@ -68,7 +67,6 @@ async def vectorize_dotted(params: WorkspaceParams):
             update_input_progress(upload_uuid, 40)
             logger.info("[dotted] Progress updated to 40%%")
             trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
-            logger.info("[dotted] Triggered next pipeline: 2_vectorization_poly")
             return {
                 "uuid": upload_uuid,
                 "railway_found": False,
@@ -148,7 +146,6 @@ async def vectorize_dotted(params: WorkspaceParams):
         update_input_progress(upload_uuid, 40)
         logger.info("[dotted] Progress updated to 40%%")
         trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
-        logger.info("[dotted] Triggered next pipeline: 2_vectorization_poly")
         return {
             "uuid": upload_uuid,
             "railway_found": not gdf.empty,
@@ -159,7 +156,7 @@ async def vectorize_dotted(params: WorkspaceParams):
     try:
         return await asyncio.to_thread(_run)
     finally:
-        gc.collect()
+        run_gc_cleanup("dotted", upload_uuid)
 
 
 register_pipeline(

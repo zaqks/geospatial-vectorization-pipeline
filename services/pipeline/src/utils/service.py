@@ -1,7 +1,6 @@
-import os
 import asyncio
 
-import httpx
+from plombery import get_logger
 from pydantic import BaseModel
 
 from ._db import SessionLocal
@@ -49,6 +48,13 @@ def update_input_progress(upload_uuid: str, percent: int) -> Input | None:
 
 
 def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
+    logger = get_logger()
+    logger.info(
+        "[trigger] Requested next pipeline '%s' for uuid=%s (disabled)",
+        pipeline_id,
+        upload_uuid,
+    )
+
     # origin = os.getenv("PIPELINE_URL")
     # if not origin:
     #     raise ValueError("PIPELINE_URL is not set")
@@ -64,7 +70,12 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     #     return response.json()
     # except ValueError:
     #     return {"status_code": response.status_code, "text": response.text}
-    print("boop")
+    return {
+        "pipeline_id": pipeline_id,
+        "uuid": upload_uuid,
+        "triggered": False,
+        "reason": "disabled",
+    }
 
 async def update_input_progress_async(upload_uuid: str, percent: int) -> Input | None:
     return await asyncio.to_thread(update_input_progress, upload_uuid, percent)

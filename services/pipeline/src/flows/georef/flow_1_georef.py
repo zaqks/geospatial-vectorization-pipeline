@@ -1,4 +1,3 @@
-import gc
 import math
 import asyncio
 from pathlib import Path
@@ -9,7 +8,7 @@ from PIL import Image
 from plombery import get_logger, register_pipeline, task
 from rasterio.transform import from_bounds
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import (
     get_input_georef_bounds,
     tirrger_flow,
@@ -94,7 +93,7 @@ async def georef_main(params: WorkspaceParams):
             "trigger": trigger_result,
         }
     finally:
-        gc.collect()
+        run_gc_cleanup("georef", upload_uuid)
 
 
 register_pipeline(

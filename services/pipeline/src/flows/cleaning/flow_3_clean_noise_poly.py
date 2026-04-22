@@ -1,4 +1,3 @@
-import gc
 import asyncio
 from pathlib import Path
 
@@ -8,7 +7,7 @@ from plombery import get_logger, register_pipeline, task
 from shapely.validation import make_valid
 from tqdm import tqdm
 
-from ..workspace.common import WorkspaceParams, workspace_paths
+from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import tirrger_flow, update_input_progress
 
 INPUT_FOLDER = Path("output/vect/poly")
@@ -101,13 +100,12 @@ async def clean_noise_poly(params: WorkspaceParams):
         update_input_progress(upload_uuid, 90)
         logger.info("[noise] Progress updated to 90%%")
         trigger_result = tirrger_flow("5_clean_workspace", upload_uuid)
-        logger.info("[noise] Triggered next pipeline: 5_clean_workspace")
         return {"uuid": upload_uuid, "next": "5_clean_workspace", "trigger": trigger_result}
 
     try:
         return await asyncio.to_thread(_run)
     finally:
-        gc.collect()
+        run_gc_cleanup("noise", upload_uuid)
 
 
 register_pipeline(
