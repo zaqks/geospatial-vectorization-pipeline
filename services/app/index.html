@@ -155,15 +155,19 @@
               <button id="new-map-btn" class="download-all-btn" type="button">New Map</button>
             </div>
 
-            <figure class="result-figure">
-              <div class="result-map-stack" id="result-map-stack">
-                <img id="result-image" alt="Processed map result" />
-                <div id="result-overlays" class="result-overlays"></div>
-              </div>
-            </figure>
+            <div class="result-visual-row">
+              <figure class="result-figure">
+                <div class="result-map-stack" id="result-map-stack">
+                  <img id="result-image" alt="Processed map result" />
+                  <div id="result-overlays" class="result-overlays"></div>
+                </div>
+              </figure>
 
-            <div class="panel-heading">Overlays</div>
-            <ul id="overlay-list" class="overlay-list"></ul>
+              <section class="overlay-panel">
+                <div class="panel-heading">Overlays</div>
+                <ul id="overlay-list" class="overlay-list"></ul>
+              </section>
+            </div>
 
             <div class="shapefiles-header">
               <div class="panel-heading">Downloads</div>

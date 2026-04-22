@@ -246,11 +246,13 @@ function updateSubmitState() {
 }
 
 function extractOverlayId(name) {
-  const match = /^id_(\d+)(?:_|$)/i.exec(String(name || ""));
+  const normalized = String(name || "");
+  const match = /^(?:id_)?(\d+)(?:_|\.|$)/i.exec(normalized);
   if (!match) {
     return Number.MAX_SAFE_INTEGER;
   }
-  return Number.parseInt(match[1], 10);
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 }
 
 function renderResult(data) {
