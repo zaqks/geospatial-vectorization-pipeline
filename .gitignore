@@ -207,7 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # custom stuff
-data/
+lab/data/
 cache/
 output/
 temp/
