@@ -26,7 +26,10 @@ def trigger_pipeline_with_retry(
 
     endpoint = f"{pipeline_url}/api/pipelines/{pipeline_id}/run"
     payload = json.dumps({"params": {"UUID": upload_uuid}}).encode("utf-8")
+    hf_token = os.getenv("HF_TOKEN")
     headers = {"Content-Type": "application/json"}
+    if hf_token:
+        headers["Authorization"] = f"Bearer {hf_token}"
 
     last_error: Exception | None = None
     total_attempts = max(1, retries + 1)
