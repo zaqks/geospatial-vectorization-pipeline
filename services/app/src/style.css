@@ -674,11 +674,37 @@ input[type="text"]:focus {
   cursor: pointer;
   letter-spacing: 0.03em;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .run-btn:hover {
   background: #5252ff;
   box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.run-btn-label {
+  display: inline-block;
+}
+
+.run-btn-loader {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: spin 0.8s linear infinite;
+  display: none;
+}
+
+.run-btn.is-loading .run-btn-loader {
+  display: inline-block;
+}
+
+.run-btn.is-loading .run-btn-label::after {
+  content: "...";
 }
 
 .run-btn:disabled {

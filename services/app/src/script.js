@@ -277,6 +277,9 @@ function setInputsDisabled(disabled) {
   fileInput.disabled = disabled;
   pointsLineInput.disabled = disabled;
   submitBtn.disabled = disabled || !isUploadReady();
+  const isProcessing = uploadForm.dataset.processing === "true";
+  submitBtn.classList.toggle("is-loading", isProcessing);
+  submitBtn.setAttribute("aria-busy", isProcessing ? "true" : "false");
 }
 
 function hasSelectedImage() {
