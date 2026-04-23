@@ -1,6 +1,6 @@
 const COOKIE_NAME = "upload_uuid";
 const COOKIE_MAX_AGE = 60 * 60 * 24;
-const POLL_INTERVAL_MS = 1000;
+const POLL_INTERVAL_MS = 5000;
 const THEME_STORAGE_KEY = "geovec_theme";
 const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
 
