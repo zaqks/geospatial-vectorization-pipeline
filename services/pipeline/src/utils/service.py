@@ -108,7 +108,8 @@ async def tirrger_flow_async(
         upload_uuid,
     )
 
-    origin = os.getenv("PIPELINE_URL")
+    origin = "http://127.0.0.1:7860" # it will trigger itself here, so use localhost directly
+
     if not origin:
         raise ValueError("PIPELINE_URL is not set")
 
