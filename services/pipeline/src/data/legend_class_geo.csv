@@ -1,0 +1,12 @@
+hex,percentage,class,geometry,z
+#fbf8f3,61.6223461427865,area sans build,polygon,1
+#f9f6ef,3.6153530158833798,residential area,polygon,2
+#e7e5e1,0.3201111621232664,surrounding metro,polygon,3
+#e0ecd3,5.5808163638813575,grass,polygon,4
+#e2ecd4,0.30387238113164566,grass2,polygon,5
+#d5e8eb,1.0371331639513692,water,polygon,6
+#f6efe4,13.074436974559367,building,polygon,7
+#ffffff,4.927560038451281,street,line,8
+#fefdd7,0.37468900721239334,route nationale,line,9
+#ffe9a5,1.2338011566639626,autoroute,line,10
+#dddddd,0.14333060252378202,railway,line,11
