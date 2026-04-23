@@ -17,6 +17,13 @@ import httpx
 GEOJSON_INSERT_BATCH_SIZE = 8
 
 
+def _build_trigger_headers() -> dict[str, str]:
+    hf_token = os.getenv("HF_TOKEN")
+    if hf_token:
+        return {"Authorization": f"Bearer {hf_token}"}
+    return {}
+
+
 class GeorefBounds(BaseModel):
     lat1: float
     lat2: float
@@ -74,6 +81,7 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     response = httpx.post(
         f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
         json=payload,
+        headers=_build_trigger_headers(),
         timeout=10,
     )
     try:
@@ -120,6 +128,7 @@ async def tirrger_flow_async(
             response = await client.post(
                 f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
                 json=payload,
+                headers=_build_trigger_headers(),
             )
     except httpx.ReadTimeout as exc:
         if not allow_read_timeout_success:
