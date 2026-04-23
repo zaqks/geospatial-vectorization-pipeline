@@ -51,7 +51,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G # 512M
+          memory: 2G # 512M / 2G
     depends_on:
       postgres:
         condition: service_started
