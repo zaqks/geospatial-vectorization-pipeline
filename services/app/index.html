@@ -155,23 +155,47 @@
               <button id="new-map-btn" class="download-all-btn" type="button">New Map</button>
             </div>
 
-            <div class="result-visual-row">
-              <figure class="result-figure">
-                <div class="result-map-stack" id="result-map-stack">
-                  <img id="result-image" alt="Processed map result" />
-                  <div id="result-overlays" class="result-overlays"></div>
-                </div>
-              </figure>
+              <div class="result-visual-row">
+                <figure class="result-figure">
+                  <div class="result-map-stack" id="result-map-stack">
+                    <img id="result-image" alt="Processed map result" />
+                    <div id="result-overlays" class="result-overlays"></div>
+                  </div>
+                </figure>
 
               <section class="overlay-panel">
                 <div class="panel-heading">Overlays</div>
                 <ul id="overlay-list" class="overlay-list"></ul>
               </section>
-            </div>
+              </div>
 
-            <div class="shapefiles-header">
-              <div class="panel-heading">Downloads</div>
-            </div>
+              <div id="result-fullscreen-modal" class="result-fullscreen-modal hidden" aria-hidden="true">
+                <div class="result-fullscreen-backdrop" data-close-fullscreen="true"></div>
+                <div class="result-fullscreen-content" role="dialog" aria-modal="true" aria-label="Fullscreen result preview">
+                  <button
+                    id="result-fullscreen-close"
+                    class="result-fullscreen-close"
+                    type="button"
+                    aria-label="Close fullscreen preview"
+                  >
+                    ×
+                  </button>
+                  <div class="result-fullscreen-stage">
+                    <div class="result-map-stack result-map-stack-fullscreen" id="result-map-stack-fullscreen">
+                      <img id="result-image-fullscreen" alt="Processed map result fullscreen preview" />
+                      <div id="result-overlays-fullscreen" class="result-overlays"></div>
+                    </div>
+                    <section class="overlay-panel overlay-panel-floating">
+                      <div class="panel-heading">Overlays</div>
+                      <ul id="overlay-list-fullscreen" class="overlay-list"></ul>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="shapefiles-header">
+                <div class="panel-heading">Downloads</div>
+              </div>
             <ul id="downloads-list" class="downloads-list"></ul>
           </section>
 

@@ -26,8 +26,14 @@ const pointsLineInput = document.getElementById("points-line");
 const statusPercent = document.getElementById("status-percent");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const statusLabel = statusPanel?.querySelector(".status-label");
+const resultMapStack = document.getElementById("result-map-stack");
 const resultImage = document.getElementById("result-image");
 const resultOverlays = document.getElementById("result-overlays");
+const resultFullscreenModal = document.getElementById("result-fullscreen-modal");
+const resultFullscreenClose = document.getElementById("result-fullscreen-close");
+const resultImageFullscreen = document.getElementById("result-image-fullscreen");
+const resultOverlaysFullscreen = document.getElementById("result-overlays-fullscreen");
+const overlayListFullscreen = document.getElementById("overlay-list-fullscreen");
 const downloadsList = document.getElementById("downloads-list");
 const overlayList = document.getElementById("overlay-list");
 const messageText = document.getElementById("message-text");
@@ -152,6 +158,10 @@ function showOnly(panel) {
   studioOnlyNodes.forEach((node) => {
     node.classList.toggle("hidden", !showHomeDecor);
   });
+
+  if (panel !== resultPanel) {
+    closeFullscreenPreview();
+  }
 }
 
 function showMessage(message) {
@@ -255,11 +265,62 @@ function extractOverlayId(name) {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 }
 
+function openFullscreenPreview() {
+  if (!resultFullscreenModal) {
+    return;
+  }
+
+  resultFullscreenModal.classList.remove("hidden");
+  resultFullscreenModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("fullscreen-open");
+}
+
+function closeFullscreenPreview() {
+  if (!resultFullscreenModal) {
+    return;
+  }
+
+  resultFullscreenModal.classList.add("hidden");
+  resultFullscreenModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("fullscreen-open");
+}
+
+function createOverlayToggleItem(label, checked, onChange) {
+  const li = document.createElement("li");
+  li.className = "overlay-item";
+
+  const toggleLabel = document.createElement("label");
+  toggleLabel.className = "overlay-toggle";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = checked;
+  checkbox.addEventListener("change", () => onChange(checkbox.checked));
+
+  const text = document.createElement("span");
+  text.textContent = label;
+
+  toggleLabel.appendChild(checkbox);
+  toggleLabel.appendChild(text);
+  li.appendChild(toggleLabel);
+
+  return { li, checkbox };
+}
+
 function renderResult(data) {
   const imageUrl = buildUrl(data.img_url || "");
   resultImage.src = imageUrl;
+  if (resultImageFullscreen) {
+    resultImageFullscreen.src = imageUrl;
+  }
   resultOverlays.innerHTML = "";
+  if (resultOverlaysFullscreen) {
+    resultOverlaysFullscreen.innerHTML = "";
+  }
   overlayList.innerHTML = "";
+  if (overlayListFullscreen) {
+    overlayListFullscreen.innerHTML = "";
+  }
 
   const overlays = (Array.isArray(data.overlays) ? data.overlays : [])
     .filter((entry) => Array.isArray(entry) && entry.length >= 2)
@@ -278,35 +339,41 @@ function renderResult(data) {
     const overlayUrl = buildUrl(entry.link);
     const overlayId = `overlay-${index}`;
 
-    const overlayImg = document.createElement("img");
-    overlayImg.src = overlayUrl;
-    overlayImg.alt = label;
-    overlayImg.className = "result-overlay-image";
-    overlayImg.dataset.overlayId = overlayId;
+    const inlineOverlayImg = document.createElement("img");
+    inlineOverlayImg.src = overlayUrl;
+    inlineOverlayImg.alt = label;
+    inlineOverlayImg.className = "result-overlay-image";
+    inlineOverlayImg.dataset.overlayId = overlayId;
+
+    const fullscreenOverlayImg = document.createElement("img");
+    fullscreenOverlayImg.src = overlayUrl;
+    fullscreenOverlayImg.alt = label;
+    fullscreenOverlayImg.className = "result-overlay-image";
+    fullscreenOverlayImg.dataset.overlayId = overlayId;
+
     if (Number.isFinite(entry.overlayId)) {
-      overlayImg.style.zIndex = String(entry.overlayId);
+      inlineOverlayImg.style.zIndex = String(entry.overlayId);
+      fullscreenOverlayImg.style.zIndex = String(entry.overlayId);
     }
-    resultOverlays.appendChild(overlayImg);
+    resultOverlays.appendChild(inlineOverlayImg);
+    if (resultOverlaysFullscreen) {
+      resultOverlaysFullscreen.appendChild(fullscreenOverlayImg);
+    }
 
-    const li = document.createElement("li");
-    li.className = "overlay-item";
-    const toggleLabel = document.createElement("label");
-    toggleLabel.className = "overlay-toggle";
+    const applyOverlayVisibility = (visible) => {
+      inlineOverlayImg.classList.toggle("hidden", !visible);
+      fullscreenOverlayImg.classList.toggle("hidden", !visible);
+      inlineToggle.checkbox.checked = visible;
+      fullscreenToggle.checkbox.checked = visible;
+    };
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = true;
-    checkbox.addEventListener("change", () => {
-      overlayImg.classList.toggle("hidden", !checkbox.checked);
-    });
+    const inlineToggle = createOverlayToggleItem(label, true, applyOverlayVisibility);
+    const fullscreenToggle = createOverlayToggleItem(label, true, applyOverlayVisibility);
 
-    const text = document.createElement("span");
-    text.textContent = label;
-
-    toggleLabel.appendChild(checkbox);
-    toggleLabel.appendChild(text);
-    li.appendChild(toggleLabel);
-    overlayList.appendChild(li);
+    overlayList.appendChild(inlineToggle.li);
+    if (overlayListFullscreen) {
+      overlayListFullscreen.appendChild(fullscreenToggle.li);
+    }
   });
 
   downloadsList.innerHTML = "";
@@ -328,6 +395,7 @@ function renderResult(data) {
     downloadsList.appendChild(li);
   });
 
+  closeFullscreenPreview();
   showOnly(resultPanel);
 }
 
@@ -440,10 +508,20 @@ function resetForNewMap() {
 
   uploadForm.reset();
   clearPreview();
+  closeFullscreenPreview();
   resultOverlays.innerHTML = "";
+  if (resultOverlaysFullscreen) {
+    resultOverlaysFullscreen.innerHTML = "";
+  }
   overlayList.innerHTML = "";
+  if (overlayListFullscreen) {
+    overlayListFullscreen.innerHTML = "";
+  }
   downloadsList.innerHTML = "";
   resultImage.removeAttribute("src");
+  if (resultImageFullscreen) {
+    resultImageFullscreen.removeAttribute("src");
+  }
   setStatusMode("processing");
   setProgress(0);
 
@@ -469,6 +547,25 @@ function init() {
   });
   pointsLineInput.addEventListener("input", updateSubmitState);
   newMapBtn.addEventListener("click", resetForNewMap);
+  if (resultMapStack) {
+    resultMapStack.addEventListener("click", openFullscreenPreview);
+  }
+  if (resultFullscreenClose) {
+    resultFullscreenClose.addEventListener("click", closeFullscreenPreview);
+  }
+  if (resultFullscreenModal) {
+    resultFullscreenModal.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.dataset.closeFullscreen === "true") {
+        closeFullscreenPreview();
+      }
+    });
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeFullscreenPreview();
+    }
+  });
 
   const rememberedUuid = getCookie(COOKIE_NAME);
   if (rememberedUuid) {
