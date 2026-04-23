@@ -16,14 +16,6 @@ import httpx
 
 GEOJSON_INSERT_BATCH_SIZE = 8
 
-
-def _build_trigger_headers() -> dict[str, str]:
-    hf_token = os.getenv("HF_TOKEN")
-    if hf_token:
-        return {"Authorization": f"Bearer {hf_token}"}
-    return {}
-
-
 class GeorefBounds(BaseModel):
     lat1: float
     lat2: float
@@ -72,7 +64,7 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
         upload_uuid,
     )
 
-    origin = os.getenv("PIPELINE_URL")
+    origin = "http://127.0.0.1:7860" # it will trigger itself here, so use localhost directly
     if not origin:
         raise ValueError("PIPELINE_URL is not set")
 
@@ -81,7 +73,7 @@ def tirrger_flow(pipeline_id: str, upload_uuid: str) -> dict:
     response = httpx.post(
         f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
         json=payload,
-        headers=_build_trigger_headers(),
+        # headers=_build_trigger_headers(), # no need for the hf header
         timeout=10,
     )
     try:
