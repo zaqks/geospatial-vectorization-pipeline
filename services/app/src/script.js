@@ -1,6 +1,9 @@
 const COOKIE_NAME = "upload_uuid";
-const COOKIE_MAX_AGE = 60 * 60 * 24;
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const POLL_INTERVAL_MS = 5000;
+const FETCH_TIMEOUT_MS = 180 * 1000;
+const FETCH_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
 const THEME_STORAGE_KEY = "geovec_theme";
 const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
 
@@ -204,6 +207,65 @@ function clearCookie(name) {
   document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithRetry(url, options = {}, { timeoutMs = FETCH_TIMEOUT_MS, retries = FETCH_RETRIES } = {}) {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      const response = await fetchWithTimeout(url, options, timeoutMs);
+      if (response.ok) {
+        return response;
+      }
+
+      const isRetryableStatus = response.status === 429 || response.status >= 500;
+      if (attempt < retries && isRetryableStatus) {
+        attempt += 1;
+        await wait(RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      throw new Error(`Request failed (${response.status})`);
+    } catch (error) {
+      const isAbortError = error instanceof DOMException && error.name === "AbortError";
+      const isNetworkError = error instanceof TypeError || isAbortError;
+
+      if (attempt < retries && isNetworkError) {
+        attempt += 1;
+        await wait(RETRY_DELAY_MS * attempt);
+        continue;
+      }
+
+      if (isAbortError) {
+        throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+
+      throw error;
+    }
+  }
+}
+
 function stopPolling() {
   if (pollTimer) {
     window.clearInterval(pollTimer);
@@ -405,10 +467,7 @@ async function pollOnce() {
   }
 
   try {
-    const response = await fetch(buildUrl(`/api/result/${activeUuid}`));
-    if (!response.ok) {
-      throw new Error(`Polling failed (${response.status})`);
-    }
+    const response = await fetchWithRetry(buildUrl(`/api/result/${activeUuid}`));
 
     const data = await response.json();
     const percent = Number(data.status_percent ?? 0);
@@ -474,14 +533,10 @@ async function handleUpload(event) {
   setInputsDisabled(true);
 
   try {
-    const response = await fetch(buildUrl("/api/upload"), {
+    const response = await fetchWithRetry(buildUrl("/api/upload"), {
       method: "POST",
       body: formData,
     });
-
-    if (!response.ok) {
-      throw new Error(`Upload failed (${response.status})`);
-    }
 
     const data = await response.json();
     if (!data.uuid) {

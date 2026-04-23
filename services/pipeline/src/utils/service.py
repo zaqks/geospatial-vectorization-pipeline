@@ -120,7 +120,7 @@ async def tirrger_flow_async(
             response = await client.post(
                 f"{origin.rstrip('/')}/api/pipelines/{pipeline_id}/run",
                 json=payload,
-                headers=_build_trigger_headers(),
+                # headers=_build_trigger_headers(),
             )
     except httpx.ReadTimeout as exc:
         if not allow_read_timeout_success:
