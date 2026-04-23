@@ -19,7 +19,7 @@ if __name__ == "__main__":
         "plombery:get_app",
         reload=os.getenv("RELOAD") != "false",
         factory=True,
-        port=8080,
+        port=7860,
         host="0.0.0.0",
         # workers=4,
     )
