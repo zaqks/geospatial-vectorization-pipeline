@@ -56,7 +56,7 @@ services:
       postgres:
         condition: service_started
     ports:
-      - 8080:8080
+      - 8080:7860
     env_file:
       - .env
     volumes:
