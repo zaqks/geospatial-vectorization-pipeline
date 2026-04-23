@@ -7,5 +7,5 @@ img.save(
     "../data/el_harrach_highres_map.png",
     format="PNG",
     optimize=True,
-    compress_level=9
+    # compress_level=9
 )
