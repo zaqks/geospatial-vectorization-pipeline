@@ -1,8 +1,8 @@
 import os
 from functools import lru_cache
-from io import BytesIO
+from tempfile import TemporaryDirectory
 
-from huggingface_hub import HfApi, hf_hub_download, login
+from huggingface_hub import batch_bucket_files, download_bucket_files, login
 
 
 def _get_hf_token() -> str:
@@ -13,11 +13,7 @@ def _get_hf_token() -> str:
 
 
 def _get_hf_repo_id() -> str:
-    return os.getenv("HF_BUCKET_REPO_ID", "zaqks/sig-pipeline").strip()
-
-
-def _get_hf_repo_type() -> str:
-    return os.getenv("HF_BUCKET_REPO_TYPE", "space").strip()
+    return os.getenv("HF_BUCKET_REPO_ID", "zaqks/sig-bucket").strip()
 
 
 @lru_cache(maxsize=1)
@@ -28,31 +24,19 @@ def _login_hf() -> str:
 
 
 def upload_to_hf(content: bytes, path_in_repo: str) -> str:
-    token = _login_hf()
+    _login_hf()
     repo_id = _get_hf_repo_id()
-    repo_type = _get_hf_repo_type()
 
-    api = HfApi(token=token)
-    api.upload_file(
-        path_or_fileobj=BytesIO(content),
-        path_in_repo=path_in_repo,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        token=token,
-    )
+    batch_bucket_files(repo_id, add=[(content, path_in_repo)])
     return path_in_repo
 
 
 def download_from_hf(path_in_repo: str) -> bytes:
-    token = _login_hf()
+    _login_hf()
     repo_id = _get_hf_repo_id()
-    repo_type = _get_hf_repo_type()
 
-    local_file = hf_hub_download(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        filename=path_in_repo,
-        token=token,
-    )
-    with open(local_file, "rb") as handle:
-        return handle.read()
+    with TemporaryDirectory() as temp_dir:
+        local_path = os.path.join(temp_dir, "download.bin")
+        download_bucket_files(repo_id, files=[(path_in_repo, local_path)])
+        with open(local_path, "rb") as handle:
+            return handle.read()
