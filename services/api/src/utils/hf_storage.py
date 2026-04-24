@@ -1,7 +1,8 @@
 import os
+from functools import lru_cache
 from io import BytesIO
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download, login
 
 
 def _get_hf_token() -> str:
@@ -19,8 +20,15 @@ def _get_hf_repo_type() -> str:
     return os.getenv("HF_BUCKET_REPO_TYPE", "space").strip()
 
 
-def upload_to_hf(content: bytes, path_in_repo: str) -> str:
+@lru_cache(maxsize=1)
+def _login_hf() -> str:
     token = _get_hf_token()
+    login(token=token, add_to_git_credential=False)
+    return token
+
+
+def upload_to_hf(content: bytes, path_in_repo: str) -> str:
+    token = _login_hf()
     repo_id = _get_hf_repo_id()
     repo_type = _get_hf_repo_type()
 
@@ -36,7 +44,7 @@ def upload_to_hf(content: bytes, path_in_repo: str) -> str:
 
 
 def download_from_hf(path_in_repo: str) -> bytes:
-    token = _get_hf_token()
+    token = _login_hf()
     repo_id = _get_hf_repo_id()
     repo_type = _get_hf_repo_type()
 
