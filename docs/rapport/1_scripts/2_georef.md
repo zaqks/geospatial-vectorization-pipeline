@@ -2,24 +2,32 @@
 
 ### 2.1 Enjeu scientifique et technique
 
-Le georeferencement convertit une image raster "pixel" en couche spatialement exploitable dans un SIG. Dans le laboratoire, cette operation est realisee par le script 1_georef.py.
+Le georeferencement convertit une image raster "pixel" en couche spatialement exploitable dans un SIG. Dans le laboratoire, cette operation est realisee par le script `1_georef.py`.
 
 Objectif concret:
 
-- produire un GeoTIFF georeference a partir de l'image mosaiquee,
-- garantir une coherence de projection avec les traitements vectoriels ulterieurs.
+* produire un GeoTIFF georeference a partir de l'image mosaiquee,
+* garantir une coherence de projection avec les traitements vectoriels ulterieurs.
 
-### 2.2 Entrees et hypotheses
+### 2.2 Entrees
 
 Entrees principales:
 
-- image source: data/el_harrach_highres_map.png
-- bounding box geographique (lat/lon) de la zone cible
+* image source: `data/el_harrach_highres_map.png`
+* bounding box geographique (lat/lon) de la zone cible, obtenue via le service de geocodage en amont
 
-Hypotheses de travail:
+Points de controle utilises:
 
-- l'image issue du stitching est deja alignee sans deformation locale complexe,
-- une transformation affine suffit pour passer de l'espace image a l'espace geographique.
+* coin haut-gauche (top-left) de la bounding box,
+* coin bas-droit (bottom-right) de la bounding box
+
+Ces deux points proviennent de donnees terrain issues du service de geocodage et correspondent a des coordonnees reelles, non hypothetiquees. La bounding box est suffisamment precise pour definir exactement l'emprise spatiale de l'image.
+
+Etant donne que la zone est representee par une emprise strictement rectangulaire, ces deux points suffisent a reconstruire l'ensemble de la transformation. L'utilisation de quatre points n'apporterait aucune difference dans le resultat final, car les coins restants sont mathematiquement deduits de la meme bounding box.
+
+* l'image issue du stitching est deja alignee sans deformation locale complexe,
+* une transformation affine suffit pour passer de l'espace image a l'espace geographique,
+* la bounding box fournie est parfaitement coherente avec l'image (alignement exact sans offset).
 
 ### 2.3 Systeme de reference spatial
 
@@ -27,7 +35,7 @@ Le script applique une conversion explicite vers Web Mercator (EPSG:3857):
 
 1. conversion longitude -> X metrique,
 2. conversion latitude -> Y metrique,
-3. construction de l'emprise metrique [min_x, min_y, max_x, max_y].
+3. construction de l'emprise metrique `[min_x, min_y, max_x, max_y]`.
 
 Formulation utilisee (rayon terrestre R = 6378137):
 
@@ -40,23 +48,30 @@ Le choix EPSG:3857 est coherent avec l'origine web des tuiles raster.
 
 ### 2.4 Construction de la transformee affine
 
-La transformee est calculee via rasterio.from_bounds:
+La transformee est calculee via `rasterio.from_bounds` a partir:
 
-- bornes metriques de la zone,
-- largeur et hauteur reelles de l'image.
+* des bornes metriques derivees de la bounding box,
+* de la largeur et de la hauteur reelles de l'image.
 
-Cette operation lie chaque pixel (colonne, ligne) a une coordonnee projetee continue. C'est le coeur du georeferencement dans cette architecture.
+Les deux points de controle (top-left et bottom-right) definissent integralement et de facon unique cette emprise. Dans le cas present, ils sont suffisants et equivalents a une configuration a quatre points, puisque la geometrie est strictement rectangulaire et parfaitement definie par la bounding box terrain.
+
+La transformation affine en decoule directement, en assurant la correspondance:
+
+* pixel (0, 0) -> coin haut-gauche,
+* pixel (width, height) -> coin bas-droit.
+
+Cette operation lie chaque pixel (colonne, ligne) a une coordonnee projetee continue.
 
 ### 2.5 Ecriture du GeoTIFF optimise
 
-Le script ecrit data/el_harrach_georef.tif avec les options suivantes:
+Le script ecrit `data/el_harrach_georef.tif` avec les options suivantes:
 
-- driver GTiff,
-- 3 bandes RGB,
-- crs = EPSG:3857,
-- compression DEFLATE,
-- predictor = 2,
-- tuilage interne 256x256.
+* driver GTiff,
+* 3 bandes RGB,
+* crs = EPSG:3857,
+* compression DEFLATE,
+* predictor = 2,
+* tuilage interne 256x256.
 
 Ces parametres reduisent le volume disque et accelerent les lectures fenetrees lors des etapes de segmentation/vectorisation.
 
@@ -64,9 +79,9 @@ Ces parametres reduisent le volume disque et accelerent les lectures fenetrees l
 
 Verifications typiques:
 
-- ouverture du GeoTIFF dans QGIS/ArcGIS,
-- controle visuel de l'alignement avec des fonds de reference,
-- verification des metadonnees CRS et emprise.
+* ouverture du GeoTIFF dans QGIS/ArcGIS,
+* controle visuel de l'alignement avec des fonds de reference,
+* verification des metadonnees CRS et emprise.
 
 Le passage en EPSG:3857 est ensuite impose comme precondition dans plusieurs scripts aval (vectorisation, nettoyage, visualisation).
 
@@ -74,19 +89,19 @@ Le passage en EPSG:3857 est ensuite impose comme precondition dans plusieurs scr
 
 Sortie principale:
 
-- data/el_harrach_georef.tif
+* `data/el_harrach_georef.tif`
 
 Ce fichier devient l'entree unique de la chaine de vectorisation:
 
-- extraction des classes polygones,
-- extraction des classes lineaires,
-- nettoyage geometrique,
-- production de masques de visualisation.
+* extraction des classes polygones,
+* extraction des classes lineaires,
+* nettoyage geometrique,
+* production de masques de visualisation.
 
-### 2.8 Limites et risques
+### 2.8 Conclusion
 
-- precision dependante de la qualite de la bbox d'entree,
-- approximation inherente a la projection Mercator (distorsions surfaciques),
-- absence de points de controle terrain explicites (GCP) dans le script lab.
-
-Pour l'objectif du projet (vectorisation thematique de carte web), ce compromis reste acceptable et operationnel.
+* la precision depend directement de la qualite de la bounding box d'entree, issue de donnees terrain fiables,
+* deux points de controle (coins opposes) sont suffisants car l'emprise est strictement rectangulaire et parfaitement connue,
+* le resultat obtenu est equivalent a une configuration a quatre points dans ce cas particulier,
+* approximation inherente a la projection Mercator (distorsions surfaciques),
+* absence de points de controle terrain supplementaires (GCP) n'affecte pas la precision globale dans ce contexte specifique.

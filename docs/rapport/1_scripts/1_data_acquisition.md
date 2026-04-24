@@ -2,7 +2,7 @@
 
 ### 1.1 Objectif de l'etape
 
-L'objectif de cette phase est de produire un raster de travail coherent, couvrant la commune cible, avec un niveau de detail suffisant pour permettre une vectorisation par couleur. Dans le dossier lab, cette etape est principalement implemente par:
+L'objectif de cette phase est de telecharger une carte scannee, couvrant la commune cible, avec un niveau de detail suffisant pour permettre une vectorisation par couleur. Dans le dossier lab, cette etape est principalement implemente par:
 
 - 0_data.py
 - 0_legend_extract.py
@@ -102,12 +102,12 @@ Produits principaux:
 
 - raster de base: data/el_harrach_highres_map.png
 - table de couleurs dominantes: data/legend.csv
-- table metier des classes: data/legend_class_geo.csv
+- table metier des classes: data/legend_class_geo.csv (on rajoute le colonnes geomerty & z-index)
 - overlays de controle: output/overlays/poly/*.png et output/overlays/line/*.png
 
 Ces artefacts alimentent directement les etapes suivantes (georeferencement et vectorisation).
 
-### 1.8 Limites identifiees en mode laboratoire
+### 1.8 Conclusion
 
 - dependance a la qualite des couleurs source (compression, aliasing, variations locales),
 - forte sensibilite du masquage a la tolerance choisie,

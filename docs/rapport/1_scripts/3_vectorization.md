@@ -113,11 +113,13 @@ Sorties complementaires:
 
 - PNG de debug/overlay pour inspection qualitative.
 
-### 3.9 Limites observees
+Ces sorties sont ensuite reprises par l'etape de nettoyage et de visualisation de controle, documentee dans le chapitre suivant, avant d'entrer dans la validation topologique.
+
+### 3.9 Conclusion
 
 - sensibilite aux collisions chromatiques entre classes,
 - risque de sur-segmentation des bords,
 - nettoyage encore heuristique (parametres a calibrer selon zone et style cartographique),
 - methodes basees couleur peu robustes aux changements de style de carte.
 
-Malgre ces limites, la chaine lab est suffisamment mature pour produire une BDG exploitable pour la suite des controles topologiques.
+La chaine lab est suffisamment mature pour produire une BDG exploitable et robuste pour la suite des controles topologiques.

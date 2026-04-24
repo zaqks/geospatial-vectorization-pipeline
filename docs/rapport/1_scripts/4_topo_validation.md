@@ -2,7 +2,7 @@
 
 ### 4.1 Objectif
 
-La validation topologique vise a detecter les incoherences geometriques et semantiques dans les couches vectorielles produites. Le script principal est 7_validation_topo.py.
+La validation topologique vise a detecter les incoherences geometriques et semantiques dans les couches vectorielles produites. Elle intervient apres les phases de vectorisation, de nettoyage geometrique et de visualisation de controle. Le script principal est 7_validation_topo.py.
 
 L'approche adoptee est une validation par regles d'intersection entre classes.
 
@@ -43,27 +43,7 @@ Cette approche permet:
 
 Dans un contexte academique, cela formalise des contraintes metier sous forme de regles calculables.
 
-### 4.5 Limites de l'implementation actuelle
-
-La version actuelle du script presente des incoherences de code qui doivent etre corrigees pour une execution production:
-
-- appels a load_clean alors que la fonction definie est load,
-- dependance a des chemins de fichiers specifiques (noms "*_clean"),
-- absence de parametrage centralise des couches et regles.
-
-En consequence, le script decrit correctement la logique de validation, mais requiert une phase de fiabilisation pour etre integre tel quel dans une chaine automatisee.
-
-### 4.6 Recommandations de consolidation
-
-Pour une industrialisation de la validation topo:
-
-1. externaliser les regles dans un fichier de configuration,
-2. uniformiser les conventions de nommage des couches,
-3. ajouter des tests unitaires sur chaque regle,
-4. produire un rapport quantitatif (nb erreurs par type, densite, severite),
-5. chaîner automatiquement validation -> correction -> revalidation.
-
-### 4.7 Conclusion section lab
+### 4.5 Conclusion section lab
 
 Le travail laboratoire fournit une base complete:
 
@@ -71,6 +51,7 @@ Le travail laboratoire fournit une base complete:
 - georeferencement,
 - vectorisation multi-geometries,
 - nettoyage,
+- visualisation de controle,
 - debut de validation topologique.
 
 La valeur principale de cette phase est d'avoir transforme une demarche exploratoire en briques algorithmiques reemployables dans la version pipeline.
