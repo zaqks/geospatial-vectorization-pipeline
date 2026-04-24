@@ -5,11 +5,11 @@ const FETCH_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 const THEME_STORAGE_KEY = "geovec_theme";
 const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
-const RESULT_IMAGE_PREFIX = "geovec_result_image_";
 const OVERLAY_IMAGE_TIMEOUT_MS = 60 * 1000;
 const MAP_DB_NAME = "geovec_maps";
-const MAP_DB_VERSION = 1;
+const MAP_DB_VERSION = 2;
 const MAP_STORE_NAME = "maps";
+const OVERLAY_STORE_NAME = "overlays";
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
 const API_URL = String(RAW_API_URL).replace(/\/$/, "");
@@ -65,10 +65,6 @@ function setResultReceived(uuid, received) {
   window.localStorage.setItem(resultReceivedKey(uuid), received ? "true" : "false");
 }
 
-function resultImageKey(uuid) {
-  return `${RESULT_IMAGE_PREFIX}${uuid}`;
-}
-
 function openMapDb() {
   if (mapDbPromise) {
     return mapDbPromise;
@@ -85,6 +81,9 @@ function openMapDb() {
       const db = request.result;
       if (!db.objectStoreNames.contains(MAP_STORE_NAME)) {
         db.createObjectStore(MAP_STORE_NAME, { keyPath: "uuid" });
+      }
+      if (!db.objectStoreNames.contains(OVERLAY_STORE_NAME)) {
+        db.createObjectStore(OVERLAY_STORE_NAME, { keyPath: "key" });
       }
     };
 
@@ -154,12 +153,91 @@ async function deleteMapBlob(uuid) {
   });
 }
 
+function buildOverlayCacheKey(uuid, overlayName, index) {
+  return `${uuid}::${index}::${overlayName}`;
+}
+
+async function saveOverlayBlob(cacheKey, uuid, blob) {
+  if (!cacheKey || !uuid || !(blob instanceof Blob)) {
+    return;
+  }
+
+  const db = await openMapDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const tx = db.transaction(OVERLAY_STORE_NAME, "readwrite");
+    tx.objectStore(OVERLAY_STORE_NAME).put({ key: cacheKey, uuid, blob, savedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
+async function getOverlayBlob(cacheKey) {
+  if (!cacheKey) {
+    return null;
+  }
+
+  const db = await openMapDb();
+  if (!db) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const tx = db.transaction(OVERLAY_STORE_NAME, "readonly");
+    const request = tx.objectStore(OVERLAY_STORE_NAME).get(cacheKey);
+    request.onsuccess = () => {
+      const record = request.result;
+      resolve(record?.blob instanceof Blob ? record.blob : null);
+    };
+    request.onerror = () => resolve(null);
+  });
+}
+
+async function deleteOverlayBlobs(uuid) {
+  if (!uuid) {
+    return;
+  }
+
+  const db = await openMapDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const tx = db.transaction(OVERLAY_STORE_NAME, "readwrite");
+    const store = tx.objectStore(OVERLAY_STORE_NAME);
+    const cursorRequest = store.openCursor();
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor) {
+        return;
+      }
+
+      const record = cursor.value;
+      if (record?.uuid === uuid) {
+        cursor.delete();
+      }
+
+      cursor.continue();
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
 function clearLegacyResultImageCache() {
   const keysToDelete = [];
 
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const key = window.localStorage.key(i);
-    if (!key || !key.startsWith(RESULT_IMAGE_PREFIX)) {
+    if (!key || !key.startsWith("geovec_result_image_")) {
       continue;
     }
 
@@ -183,11 +261,44 @@ function hasReceivedResult(uuid) {
 }
 
 function setStatusMode(mode) {
-  statusMode = mode === "loading-result" ? "loading-result" : "processing";
+  const normalizedMode = ["processing", "loading-result", "rendering-preview"].includes(mode)
+    ? mode
+    : "processing";
+  statusMode = normalizedMode;
   statusPanel.classList.toggle("result-loading", statusMode === "loading-result");
+  statusPanel.classList.toggle("rendering-preview", statusMode === "rendering-preview");
 
   if (statusLabel) {
-    statusLabel.textContent = statusMode === "loading-result" ? "Loading saved result" : "Progress";
+    if (statusMode === "loading-result") {
+      statusLabel.textContent = "Loading saved result";
+      return;
+    }
+
+    if (statusMode === "rendering-preview") {
+      statusLabel.textContent = "Rendering preview";
+      return;
+    }
+
+    statusLabel.textContent = "Progress";
+  }
+}
+
+function setRenderingProgress(loaded, total) {
+  if (statusMode !== "rendering-preview") {
+    return;
+  }
+
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const safeLoaded = Math.max(0, Math.min(safeTotal, Number(loaded) || 0));
+  const percent = safeTotal === 0 ? 100 : Math.round((safeLoaded / safeTotal) * 100);
+
+  statusPercent.textContent = String(percent);
+  if (loadingBarFill) {
+    loadingBarFill.style.width = `${percent}%`;
+  }
+
+  if (statusLabel) {
+    statusLabel.textContent = `Rendering preview (${safeLoaded}/${safeTotal})`;
   }
 }
 
@@ -494,9 +605,9 @@ function createOverlayToggleItem(label, checked, onChange) {
   return { li, checkbox };
 }
 
-async function loadOverlayImage(imgElement, url) {
-  if (!imgElement || !url) {
-    return;
+async function loadOverlayImage(url) {
+  if (!url) {
+    return null;
   }
 
   try {
@@ -506,16 +617,16 @@ async function loadOverlayImage(imgElement, url) {
     }
 
     const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    overlayObjectUrls.add(objectUrl);
-    imgElement.src = objectUrl;
+    return blob;
   } catch {
-    imgElement.removeAttribute("src");
+    return null;
   }
 }
 
 async function renderResult(data) {
   clearOverlayObjectUrls();
+  setStatusMode("rendering-preview");
+  showOnly(statusPanel);
 
   const serverImageUrl = buildUrl(data.img_url || "");
   let imageSource = serverImageUrl;
@@ -552,6 +663,10 @@ async function renderResult(data) {
     })
     .sort((a, b) => a.overlayId - b.overlayId);
 
+  let loadedOverlays = 0;
+  setRenderingProgress(loadedOverlays, overlays.length);
+  const overlayLoadPromises = [];
+
   overlays.forEach((entry, index) => {
     const label = entry.name;
     const overlayUrl = buildUrl(entry.link);
@@ -571,17 +686,48 @@ async function renderResult(data) {
       inlineOverlayImg.style.zIndex = String(entry.overlayId);
       fullscreenOverlayImg.style.zIndex = String(entry.overlayId);
     }
+    inlineOverlayImg.classList.add("hidden");
+    fullscreenOverlayImg.classList.add("hidden");
+
     resultOverlays.appendChild(inlineOverlayImg);
     if (resultOverlaysFullscreen) {
       resultOverlaysFullscreen.appendChild(fullscreenOverlayImg);
     }
 
-    void loadOverlayImage(inlineOverlayImg, overlayUrl);
-    if (resultOverlaysFullscreen) {
-      void loadOverlayImage(fullscreenOverlayImg, overlayUrl);
-    }
+    const cacheKey = buildOverlayCacheKey(activeUuid, entry.name, index);
+    let overlayVisible = true;
+
+    const overlayLoadTask = (async () => {
+      let overlayBlob = await getOverlayBlob(cacheKey);
+      if (!overlayBlob) {
+        overlayBlob = await loadOverlayImage(overlayUrl);
+        if (overlayBlob && activeUuid) {
+          await saveOverlayBlob(cacheKey, activeUuid, overlayBlob);
+        }
+      }
+
+      if (!overlayBlob) {
+        inlineOverlayImg.removeAttribute("src");
+        fullscreenOverlayImg.removeAttribute("src");
+        return;
+      }
+
+      const overlayObjectUrl = URL.createObjectURL(overlayBlob);
+      overlayObjectUrls.add(overlayObjectUrl);
+      inlineOverlayImg.src = overlayObjectUrl;
+      fullscreenOverlayImg.src = overlayObjectUrl;
+
+      if (overlayVisible) {
+        inlineOverlayImg.classList.remove("hidden");
+        fullscreenOverlayImg.classList.remove("hidden");
+      }
+    })().finally(() => {
+      loadedOverlays += 1;
+      setRenderingProgress(loadedOverlays, overlays.length);
+    });
 
     const applyOverlayVisibility = (visible) => {
+      overlayVisible = visible;
       inlineOverlayImg.classList.toggle("hidden", !visible);
       fullscreenOverlayImg.classList.toggle("hidden", !visible);
       inlineToggle.checkbox.checked = visible;
@@ -595,7 +741,13 @@ async function renderResult(data) {
     if (overlayListFullscreen) {
       overlayListFullscreen.appendChild(fullscreenToggle.li);
     }
+
+    overlayLoadPromises.push(overlayLoadTask);
   });
+
+  if (overlayLoadPromises.length > 0) {
+    await Promise.allSettled(overlayLoadPromises);
+  }
 
   downloadsList.innerHTML = "";
   const files = Array.isArray(data.files) ? data.files : [];
@@ -617,6 +769,7 @@ async function renderResult(data) {
   });
 
   closeFullscreenPreview();
+  setStatusMode("processing");
   showOnly(resultPanel);
 }
 
@@ -770,6 +923,7 @@ function resetForNewMap() {
   stopStatusStream();
   clearOverlayObjectUrls();
   void deleteMapBlob(activeUuid);
+  void deleteOverlayBlobs(activeUuid);
   activeUuid = null;
   clearCookie(COOKIE_NAME);
   clearMessage();
