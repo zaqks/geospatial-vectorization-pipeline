@@ -1,6 +1,7 @@
 # Stage 1: Builder
 FROM python:3.12-slim AS builder
 
+USER root
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
