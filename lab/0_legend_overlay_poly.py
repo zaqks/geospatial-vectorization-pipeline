@@ -2,8 +2,6 @@
 # coding: utf-8
 
 # %%
-
-
 import pandas as pd
 
 df = pd.read_csv("data/legend_class_geo.csv")
@@ -12,14 +10,11 @@ df.head()
 
 
 # %%
-
 import os
 os.makedirs("output/overlays/poly", exist_ok=True)
 
 
 # %%
-
-
 import numpy as np
 import cv2
 from tqdm import tqdm

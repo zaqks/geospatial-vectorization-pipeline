@@ -2,8 +2,6 @@
 # coding: utf-8
 
 # %%
-
-
 import math
 import numpy as np
 from PIL import Image
@@ -12,10 +10,10 @@ from rasterio.transform import from_bounds
 
 
 # %%
-
-
+# %%
 # -----------------------------
 # Input Parameters
+# %%
 # -----------------------------
 input_image = "./data/el_harrach_highres_map.png"
 output_tif = "./data/el_harrach_georef.tif"
@@ -35,16 +33,16 @@ south, north, west, east = (
 # this is the fixed one
 # 36.69154743547263, 3.113250732421875, 36.732280756072015, 3.165435791015625
 # %%
-
-
+# %%
 # -----------------------------
 # Web Mercator Conversion
+# %%
 # -----------------------------
 R = 6378137.0  # Earth radius in meters (Web Mercator)
-
+# %%
 def lon_to_x(lon):
     return R * math.radians(lon)
-
+# %%
 def lat_to_y(lat):
     return R * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
 
@@ -55,10 +53,10 @@ max_y = lat_to_y(north)
 
 
 # %%
-
-
+# %%
 # -----------------------------
 # Load Image
+# %%
 # -----------------------------
 img = Image.open(input_image).convert("RGB")
 img_np = np.array(img)
@@ -66,10 +64,10 @@ height, width, bands = img_np.shape
 
 
 # %%
-
-
+# %%
 # -----------------------------
 # Affine Transform
+# %%
 # -----------------------------
 transform = from_bounds(
     min_x, min_y,
@@ -80,10 +78,10 @@ transform = from_bounds(
 
 
 # %%
-
-
+# %%
 # -----------------------------
 # Write GeoTIFF
+# %%
 # -----------------------------
 with rasterio.open(
     output_tif,

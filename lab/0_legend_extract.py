@@ -2,18 +2,14 @@
 # coding: utf-8
 
 # %%
-
-
 from PIL import Image
 import numpy as np
 import polars as pl
 import csv
-
-
+# %%
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(*rgb)
-
-
+# %%
 def extract_unique_colors_polars(image_path, resize=None):
     img = Image.open(image_path).convert("RGB")
 
@@ -43,8 +39,6 @@ def extract_unique_colors_polars(image_path, resize=None):
 
 
 # %%
-
-
 res = extract_unique_colors_polars(
     "data/el_harrach_highres_map.png",
     resize=None
@@ -55,8 +49,6 @@ top = res
 
 
 # %%
-
-
 # Export CSV
 with open("data/legend.csv", "w", newline="") as f:
     writer = csv.writer(f)
