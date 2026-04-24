@@ -35,6 +35,7 @@ const statusLabel = statusPanel?.querySelector(".status-label");
 const resultMapStack = document.getElementById("result-map-stack");
 const resultImage = document.getElementById("result-image");
 const resultOverlays = document.getElementById("result-overlays");
+const resultPreviewLoader = document.getElementById("result-preview-loader");
 const resultFullscreenModal = document.getElementById("result-fullscreen-modal");
 const resultFullscreenClose = document.getElementById("result-fullscreen-close");
 const resultImageFullscreen = document.getElementById("result-image-fullscreen");
@@ -300,6 +301,45 @@ function closeFullscreenPreview() {
   document.body.classList.remove("fullscreen-open");
 }
 
+function setResultPreviewLoading(isLoading) {
+  if (resultMapStack) {
+    resultMapStack.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+
+  if (resultPreviewLoader) {
+    resultPreviewLoader.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+}
+
+function waitForImageReady(img, timeoutMs = 10000) {
+  if (!img) {
+    return Promise.resolve();
+  }
+
+  // Treat both successful and failed completed images as "done" so the UI never stalls.
+  if (img.complete) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finalize = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      window.clearTimeout(timeoutId);
+      img.removeEventListener("load", finalize);
+      img.removeEventListener("error", finalize);
+      resolve();
+    };
+
+    const timeoutId = window.setTimeout(finalize, timeoutMs);
+    img.addEventListener("load", finalize, { once: true });
+    img.addEventListener("error", finalize, { once: true });
+  });
+}
+
 function createOverlayToggleItem(label, checked, onChange) {
   const li = document.createElement("li");
   li.className = "overlay-item";
@@ -325,7 +365,9 @@ function createOverlayToggleItem(label, checked, onChange) {
 async function renderResult(data) {
   clearOverlayObjectUrls();
   setStatusMode("rendering-preview");
-  showOnly(statusPanel);
+  showOnly(resultPanel);
+  setResultPreviewLoading(true);
+  const previewLoadPromises = [];
 
   const serverImageUrl = buildUrl(data.img_url || "");
   let imageSource = serverImageUrl;
@@ -338,8 +380,10 @@ async function renderResult(data) {
   }
 
   resultImage.src = imageSource;
+  previewLoadPromises.push(waitForImageReady(resultImage));
   if (resultImageFullscreen) {
     resultImageFullscreen.src = imageSource;
+    previewLoadPromises.push(waitForImageReady(resultImageFullscreen));
   }
   resultOverlays.innerHTML = "";
   if (resultOverlaysFullscreen) {
@@ -415,6 +459,8 @@ async function renderResult(data) {
       overlayObjectUrls.add(overlayObjectUrl);
       inlineOverlayImg.src = overlayObjectUrl;
       fullscreenOverlayImg.src = overlayObjectUrl;
+      previewLoadPromises.push(waitForImageReady(inlineOverlayImg));
+      previewLoadPromises.push(waitForImageReady(fullscreenOverlayImg));
 
       if (overlayVisible) {
         inlineOverlayImg.classList.remove("hidden");
@@ -444,8 +490,15 @@ async function renderResult(data) {
     overlayLoadPromises.push(overlayLoadTask);
   });
 
-  if (overlayLoadPromises.length > 0) {
-    await Promise.allSettled(overlayLoadPromises);
+  try {
+    if (overlayLoadPromises.length > 0) {
+      await Promise.allSettled(overlayLoadPromises);
+    }
+    if (previewLoadPromises.length > 0) {
+      await Promise.allSettled(previewLoadPromises);
+    }
+  } finally {
+    setResultPreviewLoading(false);
   }
 
   downloadsList.innerHTML = "";
@@ -643,6 +696,7 @@ function resetForNewMap() {
   if (resultImageFullscreen) {
     resultImageFullscreen.removeAttribute("src");
   }
+  setResultPreviewLoading(false);
   setStatusMode("processing");
   setProgress(0);
 
