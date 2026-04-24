@@ -115,3 +115,9 @@ Ces artefacts alimentent directement les etapes suivantes (georeferencement et v
 - extraction des classes semantiques encore semi-supervisee (table de legende maintenue manuellement).
 
 Malgre ces limites, la phase d'acquisition fournit une base experimentale robuste pour la chaine geospatiale ulterieure.
+
+### 1.9 Figures (captures scripts)
+
+Figure 1 - Telechargement de la carte haute resolution (input)
+
+<img src="images/scripts/0_input.png" alt="Telechargement carte haute resolution" width="100%">

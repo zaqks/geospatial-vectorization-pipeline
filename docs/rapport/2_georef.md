@@ -105,3 +105,9 @@ Ce fichier devient l'entree unique de la chaine de vectorisation:
 * le resultat obtenu est equivalent a une configuration a quatre points dans ce cas particulier,
 * approximation inherente a la projection Mercator (distorsions surfaciques),
 * absence de points de controle terrain supplementaires (GCP) n'affecte pas la precision globale dans ce contexte specifique.
+
+### 2.9 Figure de verification QGIS
+
+Figure 2 - Premiere verification de la vectorisation et du georeferencement dans QGIS
+
+<img src="images/scripts/1_qgis_georef_check_poly.png" alt="Verification QGIS georef et vectorisation" width="100%">

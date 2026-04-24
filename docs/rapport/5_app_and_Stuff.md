@@ -280,3 +280,25 @@ Le resultat est une separation claire des responsabilites:
 - GitHub Actions deploie.
 
 Cette decomposition est exactement ce qu il faut pour un traitement geospatial data-intensive.
+
+### 12. Figures (application web et dashboard pipeline)
+
+Figure 9 - Ecran d'accueil de l'application web
+
+<img src="images/app_and_stuff/1_home.png" alt="Home screen webapp" width="100%">
+
+Figure 10 - Section de saisie des donnees utilisateur
+
+<img src="images/app_and_stuff/1_home_input.png" alt="Section saisie donnees" width="100%">
+
+Figure 11 - Resultat de vectorisation (vue 1)
+
+<img src="images/app_and_stuff/3_result_1.png" alt="Resultat vectorisation" width="100%">
+
+Figure 12 - Resultat de vectorisation zoome (vue 2)
+
+<img src="images/app_and_stuff/3_result_2.png" alt="Resultat vectorisation zoome" width="100%">
+
+Figure 13 - Capture du dashboard pipeline
+
+<img src="images/app_and_stuff/4_pipeline_dashbaord.png" alt="Dashboard pipeline" width="100%">

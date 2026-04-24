@@ -122,3 +122,29 @@ Cette couche de post-traitement reste heuristique.
 - la logique de nettoyage est encore specifique a certaines classes, notamment water.
 
 Cette etape est indispensable: elle transforme des sorties de vectorisation brutes en couches plus stables, plus lisibles et mieux preparees pour l'etape de validation topologique.
+
+### 4.7 Figures (nettoyage et gap filling)
+
+Figure 3 - Avant nettoyage des polygones (bruit et points parasites)
+
+<img src="images/scripts/2_before_poly_clean.png" alt="Avant nettoyage polygones" width="100%">
+
+Figure 4 - Apres nettoyage des polygones
+
+<img src="images/scripts/2_after_poly_clean.png" alt="Apres nettoyage polygones" width="100%">
+
+Figure 5 - Avant gap filling (rivière avec interruptions)
+
+<img src="images/scripts/3_before_gapfill.png" alt="Avant gap filling" width="100%">
+
+Figure 6 - Apres gap filling
+
+<img src="images/scripts/3_after_gapfill.png" alt="Apres gap filling" width="100%">
+
+Figure 7 - Resultat final (sans OSM)
+
+<img src="images/scripts/4_final_result_noosm.png" alt="Resultat final sans OSM" width="100%">
+
+Figure 8 - Resultat final (avec OSM)
+
+<img src="images/scripts/4_final_result_osm.png" alt="Resultat final avec OSM" width="100%">
