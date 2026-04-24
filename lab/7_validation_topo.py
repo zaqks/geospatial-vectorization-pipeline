@@ -1,6 +1,4 @@
 # ─────────────────────────────
-
-
 import geopandas as gpd
 from shapely.validation import make_valid
 from shapely.ops import unary_union
@@ -10,7 +8,7 @@ import numpy as np
 # ─────────────────────────────────────────────
 # LOAD SAFE
 # ─────────────────────────────────────────────
-def load(path):
+def load_clean(path):
     gdf = gpd.read_file(path)
     gdf = gdf[gdf.geometry.notnull()]
     gdf = gdf[~gdf.geometry.is_empty]
@@ -50,16 +48,16 @@ def validate():
 
     print("Loading layers...")
 
-    roads_auto = load_clean("output/vect/line2/route_final_clean2.geojson")
-    roads_nat = load_clean("output/vect/line2/autoroute_final_clean.geojson")
-    roads_st = load_clean("output/vect/line2/street_final_clean.geojson")
+    roads_auto = load_clean("output/vect/line/autoroute.geojson")
+    roads_nat = load_clean("output/vect/line/route_nationale.geojson")
+    roads_st = load_clean("output/vect/line/street.geojson")
 
-    buildings = load_clean("output/vect/poly/buildings_clean2.geojson")
-    water = load_clean("output/vect/poly/water_clean.geojson")
-    res = load_clean("output/vect/poly/residential_clean.geojson")
-    area = load_clean("output/vect/poly/area_clean.geojson")
-    grass = load("output/vect/poly/grass_clean.geojson")
-    metro = load("output/vect/poly/surrounding metro.geojson")
+    buildings = load_clean("output/vect/poly/building.geojson")
+    water = load_clean("output/vect/poly/water.geojson")
+    res = load_clean("output/vect/poly/residential area.geojson")
+    area = load_clean("output/vect/poly/area sans build.geojson")
+    grass = load_clean("output/vect/poly/grass.geojson")
+    metro = load_clean("output/vect/poly/surrounding metro.geojson")
 
     print("Running validations...\n")
 
@@ -109,25 +107,27 @@ def validate():
     print("Metro ∩ Buildings:", len(mb))
     print("Metro ∩ Water:", len(mw))
 
-    # ─────────────────────────────
-    # EXPORT ERROR LAYERS
-    # ─────────────────────────────
-    def export(name, geom_list):
-        if len(geom_list) == 0:
-            return
-        gpd.GeoDataFrame(geometry=geom_list, crs=roads_auto.crs).to_file(
-            f"errors_{name}.geojson", driver="GeoJSON"
-        )
+    # # ─────────────────────────────
+    # # EXPORT ERROR LAYERS
+    # # ─────────────────────────────
+    # def export(name, geom_list):
+    #     if len(geom_list) == 0:
+    #         return
+    #     gpd.GeoDataFrame(geometry=geom_list, crs=roads_auto.crs).to_file(
+    #         f"errors_{name}.geojson", driver="GeoJSON"
+    #     )
 
-    export("buildings_water", bw)
-    export("buildings_roads", br)
-    export("road_nat_auto", na)
-    export("road_st_nat", st)
-    export("res_water", rw)
-    export("metro_buildings", mb)
-    export("metro_water", mw)
+    # export("buildings_water", bw)
+    # export("buildings_roads", br)
+    # export("road_nat_auto", na)
+    # export("road_st_nat", st)
+    # export("res_water", rw)
+    # export("metro_buildings", mb)
+    # export("metro_water", mw)
 
-    print("\n✅ Validation complete — error layers exported.")
+    # print("\n✅ Validation complete — error layers exported.")
+
+    print("\n✅ Validation complete")
 
 
 # ─────────────────────────────────────────────
