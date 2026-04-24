@@ -78,7 +78,8 @@ async def export_output(params: WorkspaceParams):
         )
 
         update_input_progress(upload_uuid, 100)
-        notify_api_progress(
+        await asyncio.to_thread(
+            notify_api_progress,
             upload_uuid,
             task="5_export_output.export_output",
             status_percent=100,

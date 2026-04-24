@@ -16,6 +16,8 @@ import httpx
 
 
 GEOJSON_INSERT_BATCH_SIZE = 8
+NOTIFY_MAX_RETRIES = 3
+NOTIFY_TIMEOUT_SECONDS = 180
 
 
 def notify_api_progress(
@@ -24,6 +26,8 @@ def notify_api_progress(
     task: str,
     status_percent: int | None = None,
     result_ready: bool | None = None,
+    timeout_seconds: float = NOTIFY_TIMEOUT_SECONDS,
+    max_retries: int = NOTIFY_MAX_RETRIES,
 ) -> bool:
     logger = get_logger()
     api_url = os.getenv("API_URL", "").rstrip("/")
@@ -41,22 +45,37 @@ def notify_api_progress(
     if result_ready is not None:
         payload["result_ready"] = bool(result_ready)
 
-    try:
-        response = httpx.post(
-            f"{api_url}/api/events/notify",
-            json=payload,
-            timeout=5,
-        )
-        response.raise_for_status()
-        return True
-    except Exception as exc:
-        logger.warning(
-            "[notify] Failed to notify API for uuid=%s task=%s: %s",
-            upload_uuid,
-            task,
-            exc,
-        )
-        return False
+    retry_count = max(1, int(max_retries))
+
+    for attempt in range(1, retry_count + 1):
+        try:
+            response = httpx.post(
+                f"{api_url}/api/events/notify",
+                json=payload,
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+            return True
+        except Exception as exc:
+            if attempt < retry_count:
+                logger.warning(
+                    "[notify] Attempt %s/%s failed for uuid=%s task=%s: %s; retrying",
+                    attempt,
+                    retry_count,
+                    upload_uuid,
+                    task,
+                    exc,
+                )
+                continue
+
+            logger.warning(
+                "[notify] Failed to notify API for uuid=%s task=%s after %s attempts: %s",
+                upload_uuid,
+                task,
+                retry_count,
+                exc,
+            )
+            return False
 
 class GeorefBounds(BaseModel):
     lat1: float
