@@ -80,7 +80,15 @@ async def upload(
     """
     lat1, lat2, lng1, lng2 = _parse_bounding_box(bounding_box)
     image_bytes = await file.read()
-    upload_uuid = save_mock_input(db, image_bytes, lat1, lat2, lng1, lng2)
+    upload_uuid = save_mock_input(
+        db,
+        image_bytes,
+        file.filename or "input",
+        lat1,
+        lat2,
+        lng1,
+        lng2,
+    )
 
     try:
         await asyncio.to_thread(trigger_pipeline_with_retry, upload_uuid)

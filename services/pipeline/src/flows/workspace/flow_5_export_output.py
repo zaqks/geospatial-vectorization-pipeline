@@ -5,7 +5,6 @@ import shutil
 from plombery import get_logger, register_pipeline, task
 
 from ...utils.service import (
-    tirrger_flow_async,
     update_input_progress,
     upsert_output_archive_from_workspace_async,
 )
@@ -71,21 +70,14 @@ async def export_output(params: WorkspaceParams):
             archive_path,
         )
 
-        update_input_progress(upload_uuid, 95)
-        logger.info("[export] Progress updated to 95%%")
+        update_input_progress(upload_uuid, 100)
+        logger.info("[export] Progress updated to 100%%")
 
-        trigger_result = await tirrger_flow_async(
-            "6_clean_workspace",
-            upload_uuid,
-            timeout_seconds=30,
-            allow_read_timeout_success=True,
-        )
         return {
             "uuid": upload_uuid,
             "export": export_result,
             "overlay_masks_found": len(overlay_masks),
-            "next": "6_clean_workspace",
-            "trigger": trigger_result,
+            "next": None,
         }
 
     try:

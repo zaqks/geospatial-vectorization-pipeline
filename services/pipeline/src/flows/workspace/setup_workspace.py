@@ -8,6 +8,7 @@ from plombery import get_logger, register_pipeline, task
 
 from ...utils._db import SessionLocal
 from ...utils.models import Input
+from ...utils.hf_storage import download_from_hf
 from ...utils.service import tirrger_flow, update_input_progress_async
 from .common import WorkspaceParams, workspace_paths
 
@@ -28,7 +29,7 @@ async def setup_workspace(params: WorkspaceParams):
         db_input = db.get(Input, upload_uuid)
         if not db_input:
             raise ValueError(f"Upload not found for uuid={upload_uuid}")
-        image_bytes = db_input.image
+        image_bytes = download_from_hf(db_input.image_ref)
     finally:
         db.close()
 

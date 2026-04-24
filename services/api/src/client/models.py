@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, Float, ForeignKey, Integer, LargeBinary, String
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from ..utils._db import Base
@@ -9,7 +9,8 @@ class Input(Base):
 	__tablename__ = "inputs"
 
 	uuid = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-	image = Column(LargeBinary, nullable=False)
+	image_name = Column(String, nullable=False)
+	image_ref = Column(String, nullable=False)
 	lat1 = Column(Float, nullable=False)
 	lat2 = Column(Float, nullable=False)
 	lng1 = Column(Float, nullable=False)
@@ -48,7 +49,7 @@ class OutputFile(Base):
 	id = Column(Integer, primary_key=True, index=True)
 	output_uuid = Column(String(36), ForeignKey("outputs.uuid"), nullable=False)
 	name = Column(String, nullable=False)
-	file = Column(LargeBinary, nullable=False)
+	file_ref = Column(String, nullable=False)
 
 	output = relationship("Output", back_populates="output_files")
 
@@ -59,6 +60,6 @@ class OverlayImage(Base):
 	id = Column(Integer, primary_key=True, index=True)
 	output_uuid = Column(String(36), ForeignKey("outputs.uuid"), nullable=False)
 	name = Column(String, nullable=False)
-	image = Column(LargeBinary, nullable=False)
+	image_ref = Column(String, nullable=False)
 
 	output = relationship("Output", back_populates="overlay_images")

@@ -7,6 +7,7 @@ from urllib import error, request
 from sqlalchemy.orm import Session
 
 from .models import Input, Output
+from ..utils.hf_storage import upload_to_hf
 
 
 DEFAULT_TRIGGER_TIMEOUT_SECONDS = 180
@@ -61,16 +62,20 @@ def trigger_pipeline_with_retry(
 def save_mock_input(
     db: Session,
     image_bytes: bytes,
+    image_name: str,
     lat1: float,
     lat2: float,
     lng1: float,
     lng2: float,
 ) -> str:
     upload_uuid = str(uuid.uuid4())
+    safe_name = (image_name or "input").replace("\\", "/").split("/")[-1] or "input"
+    image_ref = upload_to_hf(image_bytes, f"uploads/{upload_uuid}/input/{safe_name}")
 
     db_input = Input(
         uuid=upload_uuid,
-        image=image_bytes,
+        image_name=safe_name,
+        image_ref=image_ref,
         lat1=lat1,
         lat2=lat2,
         lng1=lng1,

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..client.models import Input, OutputFile, OverlayImage
 from ..utils._db import get_db
+from ..utils.hf_storage import download_from_hf
 
 router = APIRouter(tags=["Files"])
 
@@ -24,9 +25,13 @@ async def serve_output_preview_image(
     db: Session = Depends(get_db),
 ):
     db_input = db.get(Input, upload_uuid)
-    if not db_input or not db_input.image:
+    if not db_input or not db_input.image_ref:
         raise HTTPException(status_code=404, detail="Preview image not found")
-    return _as_media_response("image.png", db_input.image)
+    try:
+        file_bytes = download_from_hf(db_input.image_ref)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Preview image not found") from exc
+    return _as_media_response(db_input.image_name or "image.png", file_bytes)
 
 
 @router.get("/media/{upload_uuid}/{filename}")
@@ -42,7 +47,11 @@ async def serve_media_for_upload(
     )
     if not db_file:
         raise HTTPException(status_code=404, detail="Media not found")
-    return _as_media_response(filename, db_file.file)
+    try:
+        file_bytes = download_from_hf(db_file.file_ref)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Media not found") from exc
+    return _as_media_response(filename, file_bytes)
 
 
 @router.get("/media/{upload_uuid}/overlay/{filename}")
@@ -58,4 +67,8 @@ async def serve_overlay_for_upload(
     )
     if not db_file:
         raise HTTPException(status_code=404, detail="Overlay image not found")
-    return _as_media_response(filename, db_file.image)
+    try:
+        file_bytes = download_from_hf(db_file.image_ref)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Overlay image not found") from exc
+    return _as_media_response(filename, file_bytes)

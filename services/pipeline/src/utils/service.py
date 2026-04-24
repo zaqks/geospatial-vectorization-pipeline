@@ -8,6 +8,7 @@ from sqlalchemy.orm import load_only
 
 from ._db import SessionLocal
 from .models import Input, Output, OutputFile, OverlayImage
+from .hf_storage import upload_to_hf
 
 
 import os
@@ -176,7 +177,7 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
             db.add(db_output)
             db.flush()
         else:
-            # Bulk delete avoids materializing previous OutputFile.file BLOBs.
+            # Bulk delete avoids materializing previous output rows before rewrite.
             db.execute(delete(OutputFile).where(OutputFile.output_uuid == upload_uuid))
             db.execute(delete(OverlayImage).where(OverlayImage.output_uuid == upload_uuid))
             db.flush()
@@ -186,9 +187,12 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
         for geojson_path in workspace_output_dir.rglob("*.geojson"):
             relative_path = geojson_path.relative_to(workspace_output_dir)
             stored_name = str(relative_path).replace("/", "__")
-            file_bytes = geojson_path.read_bytes()
+            file_ref = upload_to_hf(
+                geojson_path.read_bytes(),
+                f"outputs/{upload_uuid}/geojson/{stored_name}",
+            )
             db.add(
-                OutputFile(output_uuid=upload_uuid, name=stored_name, file=file_bytes)
+                OutputFile(output_uuid=upload_uuid, name=stored_name, file_ref=file_ref)
             )
             inserted_count += 1
             batch_count += 1
@@ -211,7 +215,10 @@ def upsert_output_from_workspace(upload_uuid: str, workspace_output_dir: Path) -
                     OverlayImage(
                         output_uuid=upload_uuid,
                         name=overlay_path.name,
-                        image=overlay_path.read_bytes(),
+                        image_ref=upload_to_hf(
+                            overlay_path.read_bytes(),
+                            f"outputs/{upload_uuid}/overlays/{overlay_path.name}",
+                        ),
                     )
                 )
                 overlay_count += 1
@@ -276,12 +283,15 @@ def upsert_output_archive_from_workspace(
             db.execute(delete(OverlayImage).where(OverlayImage.output_uuid == upload_uuid))
             db.flush()
 
-        archive_bytes = archive_path.read_bytes()
+        archive_ref = upload_to_hf(
+            archive_path.read_bytes(),
+            f"outputs/{upload_uuid}/archives/{archive_path.name}",
+        )
         db.add(
             OutputFile(
                 output_uuid=upload_uuid,
                 name=archive_path.name,
-                file=archive_bytes,
+                file_ref=archive_ref,
             )
         )
 
@@ -293,7 +303,10 @@ def upsert_output_archive_from_workspace(
                     OverlayImage(
                         output_uuid=upload_uuid,
                         name=overlay_path.name,
-                        image=overlay_path.read_bytes(),
+                        image_ref=upload_to_hf(
+                            overlay_path.read_bytes(),
+                            f"outputs/{upload_uuid}/overlays/{overlay_path.name}",
+                        ),
                     )
                 )
                 overlay_count += 1
@@ -309,7 +322,7 @@ def upsert_output_archive_from_workspace(
             "uuid": upload_uuid,
             "output_uuid": upload_uuid,
             "archive_name": archive_path.name,
-            "archive_size": len(archive_bytes),
+            "archive_ref": archive_ref,
             "overlay_count": overlay_count,
         }
     finally:
