@@ -7,6 +7,9 @@ const THEME_STORAGE_KEY = "geovec_theme";
 const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
 const RESULT_IMAGE_PREFIX = "geovec_result_image_";
 const OVERLAY_IMAGE_TIMEOUT_MS = 60 * 1000;
+const MAP_DB_NAME = "geovec_maps";
+const MAP_DB_VERSION = 1;
+const MAP_STORE_NAME = "maps";
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
 const API_URL = String(RAW_API_URL).replace(/\/$/, "");
@@ -47,8 +50,8 @@ let activeUuid = null;
 let statusEventSource = null;
 let previewUrl = null;
 let statusMode = "processing";
-let pendingUploadImageDataUrl = null;
 const overlayObjectUrls = new Set();
+let mapDbPromise = null;
 
 function resultReceivedKey(uuid) {
   return `${RESULT_RECEIVED_PREFIX}${uuid}`;
@@ -66,28 +69,109 @@ function resultImageKey(uuid) {
   return `${RESULT_IMAGE_PREFIX}${uuid}`;
 }
 
-function setResultImage(uuid, dataUrl) {
-  if (!uuid || !dataUrl) {
+function openMapDb() {
+  if (mapDbPromise) {
+    return mapDbPromise;
+  }
+
+  if (!("indexedDB" in window)) {
+    return Promise.resolve(null);
+  }
+
+  mapDbPromise = new Promise((resolve) => {
+    const request = window.indexedDB.open(MAP_DB_NAME, MAP_DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(MAP_STORE_NAME)) {
+        db.createObjectStore(MAP_STORE_NAME, { keyPath: "uuid" });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+
+  return mapDbPromise;
+}
+
+async function saveMapBlob(uuid, blob) {
+  if (!uuid || !(blob instanceof Blob)) {
     return;
   }
 
-  window.localStorage.setItem(resultImageKey(uuid), dataUrl);
+  const db = await openMapDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const tx = db.transaction(MAP_STORE_NAME, "readwrite");
+    tx.objectStore(MAP_STORE_NAME).put({ uuid, blob, savedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
 }
 
-function getResultImage(uuid) {
+async function getMapBlob(uuid) {
   if (!uuid) {
     return null;
   }
 
-  return window.localStorage.getItem(resultImageKey(uuid));
+  const db = await openMapDb();
+  if (!db) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const tx = db.transaction(MAP_STORE_NAME, "readonly");
+    const request = tx.objectStore(MAP_STORE_NAME).get(uuid);
+    request.onsuccess = () => {
+      const record = request.result;
+      resolve(record?.blob instanceof Blob ? record.blob : null);
+    };
+    request.onerror = () => resolve(null);
+  });
 }
 
-function clearResultImage(uuid) {
+async function deleteMapBlob(uuid) {
   if (!uuid) {
     return;
   }
 
-  window.localStorage.removeItem(resultImageKey(uuid));
+  const db = await openMapDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const tx = db.transaction(MAP_STORE_NAME, "readwrite");
+    tx.objectStore(MAP_STORE_NAME).delete(uuid);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
+function clearLegacyResultImageCache() {
+  const keysToDelete = [];
+
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (!key || !key.startsWith(RESULT_IMAGE_PREFIX)) {
+      continue;
+    }
+
+    const value = window.localStorage.getItem(key) || "";
+    if (value.startsWith("data:")) {
+      keysToDelete.push(key);
+    }
+  }
+
+  keysToDelete.forEach((key) => {
+    window.localStorage.removeItem(key);
+  });
 }
 
 function hasReceivedResult(uuid) {
@@ -147,22 +231,6 @@ function clearOverlayObjectUrls() {
     URL.revokeObjectURL(objectUrl);
   });
   overlayObjectUrls.clear();
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      resolve(typeof reader.result === "string" ? reader.result : "");
-    };
-
-    reader.onerror = () => {
-      reject(reader.error || new Error("Failed to read image file."));
-    };
-
-    reader.readAsDataURL(file);
-  });
 }
 
 function updatePreview() {
@@ -446,13 +514,23 @@ async function loadOverlayImage(imgElement, url) {
   }
 }
 
-function renderResult(data) {
-  const imageSource = getResultImage(activeUuid) || buildUrl(data.img_url || "");
+async function renderResult(data) {
+  clearOverlayObjectUrls();
+
+  const serverImageUrl = buildUrl(data.img_url || "");
+  let imageSource = serverImageUrl;
+
+  const mapBlob = await getMapBlob(activeUuid);
+  if (mapBlob) {
+    const cachedMapUrl = URL.createObjectURL(mapBlob);
+    overlayObjectUrls.add(cachedMapUrl);
+    imageSource = cachedMapUrl;
+  }
+
   resultImage.src = imageSource;
   if (resultImageFullscreen) {
     resultImageFullscreen.src = imageSource;
   }
-  clearOverlayObjectUrls();
   resultOverlays.innerHTML = "";
   if (resultOverlaysFullscreen) {
     resultOverlaysFullscreen.innerHTML = "";
@@ -554,7 +632,7 @@ async function fetchResultForActiveUpload() {
 
   if (percent >= 100 && data.img_url) {
     setResultReceived(activeUuid, true);
-    renderResult(data);
+    await renderResult(data);
     return;
   }
 
@@ -648,8 +726,6 @@ async function handleUpload(event) {
   }
 
   const { lat1, lng1, lat2, lng2 } = parsedCoords;
-  const selectedFile = fileInput.files[0];
-  const imageDataUrlPromise = readFileAsDataUrl(selectedFile).catch(() => null);
 
   const bbox = {
     points: [
@@ -659,7 +735,8 @@ async function handleUpload(event) {
   };
 
   const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
+  const selectedFile = fileInput.files[0];
+  formData.append("file", selectedFile);
   formData.append("bounding_box", JSON.stringify(bbox));
 
   uploadForm.dataset.processing = "true";
@@ -679,12 +756,10 @@ async function handleUpload(event) {
     activeUuid = String(data.uuid);
     setCookie(COOKIE_NAME, activeUuid, COOKIE_MAX_AGE);
     setResultReceived(activeUuid, false);
+    await saveMapBlob(activeUuid, selectedFile);
     setProgress(0);
-    pendingUploadImageDataUrl = await imageDataUrlPromise;
-    setResultImage(activeUuid, pendingUploadImageDataUrl);
     startStatusStream("processing");
   } catch (error) {
-    pendingUploadImageDataUrl = null;
     uploadForm.dataset.processing = "false";
     setInputsDisabled(false);
     showMessage(error instanceof Error ? error.message : "Upload failed.");
@@ -694,9 +769,8 @@ async function handleUpload(event) {
 function resetForNewMap() {
   stopStatusStream();
   clearOverlayObjectUrls();
-  clearResultImage(activeUuid);
+  void deleteMapBlob(activeUuid);
   activeUuid = null;
-  pendingUploadImageDataUrl = null;
   clearCookie(COOKIE_NAME);
   clearMessage();
 
@@ -727,6 +801,7 @@ function resetForNewMap() {
 
 function init() {
   initTheme();
+  clearLegacyResultImageCache();
 
   if (!API_URL) {
     showMessage("Missing VITE_API_URL Vite environment variable.");
