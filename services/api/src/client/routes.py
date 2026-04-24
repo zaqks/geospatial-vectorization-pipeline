@@ -18,6 +18,7 @@ from .service import get_mock_result, save_mock_input, trigger_pipeline_with_ret
 router = APIRouter(prefix="/api", tags=["processing"])
 
 API_URL = os.getenv("API_URL", "").rstrip("/")
+MEDIA_URL = os.getenv("MEDIA_URL", "").rstrip("/")
 
 
 @dataclass
@@ -88,8 +89,8 @@ async def _wait_for_progress_signal(upload_uuid: str, timeout_seconds: float = 2
 
 def build_media_url(path: str, request: Request) -> str:
     normalized_path = path if path.startswith("/") else f"/{path}"
-    if API_URL:
-        return f"{API_URL}{normalized_path}"
+    if MEDIA_URL:
+        return f"{MEDIA_URL}{normalized_path}"
     return f"{str(request.base_url).rstrip('/')}{normalized_path}"
 
 
