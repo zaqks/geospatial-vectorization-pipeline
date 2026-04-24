@@ -20,6 +20,19 @@ OUTPUT_VIZ_DIR = Path("viz")
 
 
 
+def _save_mask_png(rgba: np.ndarray, output_path: Path) -> None:
+    height, width = rgba.shape[:2]
+    resized_size = (max(1, width // 2), max(1, height // 2))
+    resampling = getattr(Image, "Resampling", Image).NEAREST
+    Image.fromarray(rgba).resize(resized_size, resample=resampling).save(
+        output_path,
+        format="PNG",
+        optimize=True,
+        compress_level=9,
+    )
+
+
+
 def _load_palette(colors_path: Path) -> list[tuple[int, int, int]]:
     df = pd.read_csv(colors_path).dropna(subset=["r", "g", "b"])
     palette = []
@@ -115,7 +128,7 @@ async def viz_poly_masks(params: WorkspaceParams):
 
             output_name = f"{z_index}_{class_name}_mask.png"
             output_path = output_viz_dir / output_name
-            Image.fromarray(rgba).save(output_path, format="PNG", optimize=False)
+            _save_mask_png(rgba, output_path)
             mask_count += 1
 
         update_input_progress(upload_uuid, 95)
