@@ -11,11 +11,11 @@ echo "Starting pipeline..."
 # echo "Running 0_legend_extract.py..."
 # python 0_legend_extract.py
 
-# echo "Running 0_legend_overlay_line.py..."
-# python 0_legend_overlay_line.py
+echo "Running 0_legend_overlay_line.py..."
+python 0_legend_overlay_line.py
 
-# echo "Running 0_legend_overlay_poly.py..."
-# python 0_legend_overlay_poly.py
+echo "Running 0_legend_overlay_poly.py..."
+python 0_legend_overlay_poly.py
 
 echo "Running 1_georef.py..."
 python 1_georef.py
