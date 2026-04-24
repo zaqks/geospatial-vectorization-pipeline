@@ -21,5 +21,5 @@ if __name__ == "__main__":
         factory=True,
         port=7860,
         host="0.0.0.0",
-        # workers=4,
+        workers=4,
     )
