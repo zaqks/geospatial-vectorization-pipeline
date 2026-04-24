@@ -1,0 +1,37 @@
+name: Deploy API to Hugging Face Space
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "services/api/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd services/api
+
+          git init
+
+          git config user.email "github-actions@users.noreply.github.com"
+          git config user.name "github-actions"
+
+          git remote add origin https://zaqks:${HF_TOKEN}@huggingface.co/spaces/zaqks/sig-api
+
+          git add .
+
+          git commit -m "Deploy update" || echo "No changes to commit"
+
+          git branch -M main
+
+          git push -f origin main

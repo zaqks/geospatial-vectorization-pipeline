@@ -2,8 +2,9 @@
 
 <img src="./docs/screen.png" width=100%>
 
-
 End-to-end pipeline for converting satellite and scanned imagery into structured geospatial vector data, including georeferencing, database creation, and topology validation.
+
+<img src="./docs/screen2.png" width=100%>
 
 ## Architecture
 
