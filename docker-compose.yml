@@ -26,7 +26,7 @@ services:
     #   postgres:
     #     condition: service_started
     ports:
-      - 8000:8000
+      - 8000:7860
     env_file:
       - .env
     volumes:

@@ -9,7 +9,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "src.app:app",
         reload=os.getenv("RELOAD") != "false",
-        port=8000,
+        port=7860,
         host="0.0.0.0",
         # workers=4,
     )

@@ -37,7 +37,7 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 # Expose port
-EXPOSE 8000
+EXPOSE 7860
 
 # Make run script executable and set entrypoint
 RUN chmod +x migrate.sh
