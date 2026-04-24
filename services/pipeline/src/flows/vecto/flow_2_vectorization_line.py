@@ -12,7 +12,7 @@ from skimage.morphology import closing, disk, remove_small_objects, skeletonize
 from tqdm import tqdm
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
 INPUT_LEGEND_PATH = Path("data/legend_class_geo.csv")
@@ -120,6 +120,11 @@ async def vectorize_line(params: WorkspaceParams):
             #     Image.fromarray(out_img).save(output_dir / f"{class_name_safe}.png")
 
         update_input_progress(upload_uuid, 25)
+        notify_api_progress(
+            upload_uuid,
+            task="2_vectorization_line.vectorize_line",
+            status_percent=25,
+        )
         logger.info("[line] Progress updated to 25%%")
         trigger_result = tirrger_flow("2_vectorization_dotted", upload_uuid)
         return {"uuid": upload_uuid, "next": "2_vectorization_dotted", "trigger": trigger_result}

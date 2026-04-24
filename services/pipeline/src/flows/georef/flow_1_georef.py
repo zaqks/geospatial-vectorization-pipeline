@@ -11,6 +11,7 @@ from rasterio.transform import from_bounds
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
 from ...utils.service import (
     get_input_georef_bounds,
+    notify_api_progress,
     tirrger_flow,
     update_input_progress_async,
 )
@@ -82,6 +83,12 @@ async def georef_main(params: WorkspaceParams):
         await asyncio.to_thread(_render_geotiff)
 
         await update_input_progress_async(upload_uuid, 10)
+        await asyncio.to_thread(
+            notify_api_progress,
+            upload_uuid,
+            task="1_georef.georef_main",
+            status_percent=10,
+        )
         trigger_result = await asyncio.to_thread(
             tirrger_flow, "2_vectorization_line", upload_uuid
         )

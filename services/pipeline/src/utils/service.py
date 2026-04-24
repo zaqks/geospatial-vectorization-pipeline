@@ -17,6 +17,47 @@ import httpx
 
 GEOJSON_INSERT_BATCH_SIZE = 8
 
+
+def notify_api_progress(
+    upload_uuid: str,
+    *,
+    task: str,
+    status_percent: int | None = None,
+    result_ready: bool | None = None,
+) -> bool:
+    logger = get_logger()
+    api_url = os.getenv("API_URL", "").rstrip("/")
+    if not api_url:
+        logger.info("[notify] API_URL not set; skipping notification for uuid=%s", upload_uuid)
+        return False
+
+    payload: dict[str, object] = {
+        "uuid": upload_uuid,
+        "task": task,
+        "event": "task_completed",
+    }
+    if status_percent is not None:
+        payload["status_percent"] = int(status_percent)
+    if result_ready is not None:
+        payload["result_ready"] = bool(result_ready)
+
+    try:
+        response = httpx.post(
+            f"{api_url}/api/events/notify",
+            json=payload,
+            timeout=5,
+        )
+        response.raise_for_status()
+        return True
+    except Exception as exc:
+        logger.warning(
+            "[notify] Failed to notify API for uuid=%s task=%s: %s",
+            upload_uuid,
+            task,
+            exc,
+        )
+        return False
+
 class GeorefBounds(BaseModel):
     lat1: float
     lat2: float

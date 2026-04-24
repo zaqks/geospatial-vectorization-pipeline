@@ -1,10 +1,14 @@
 import asyncio
 import json
 import os
-from typing import Union
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any, Union
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..utils._db import get_db
@@ -14,6 +18,72 @@ from .service import get_mock_result, save_mock_input, trigger_pipeline_with_ret
 router = APIRouter(prefix="/api", tags=["processing"])
 
 API_URL = os.getenv("API_URL", "").rstrip("/")
+
+
+@dataclass
+class ProgressEvent:
+    uuid: str
+    task: str | None
+    event: str
+    status_percent: int | None = None
+    result_ready: bool | None = None
+
+
+class NotifyEventPayload(BaseModel):
+    uuid: str
+    task: str | None = None
+    event: str = "task_completed"
+    status_percent: int | None = None
+    result_ready: bool | None = None
+
+
+_pending_events: dict[str, list[ProgressEvent]] = defaultdict(list)
+_stream_signals: dict[str, asyncio.Event] = {}
+_event_lock = asyncio.Lock()
+
+
+def _format_sse_message(data: dict[str, Any], event: str | None = None) -> bytes:
+    payload = json.dumps(data, separators=(",", ":"))
+    if event:
+        return f"event: {event}\ndata: {payload}\n\n".encode("utf-8")
+    return f"data: {payload}\n\n".encode("utf-8")
+
+
+async def _enqueue_progress_event(progress_event: ProgressEvent) -> None:
+    async with _event_lock:
+        _pending_events[progress_event.uuid].append(progress_event)
+        signal = _stream_signals.get(progress_event.uuid)
+        if signal is None:
+            signal = asyncio.Event()
+            _stream_signals[progress_event.uuid] = signal
+        signal.set()
+
+
+async def _pop_progress_event(upload_uuid: str) -> ProgressEvent | None:
+    async with _event_lock:
+        queued = _pending_events.get(upload_uuid)
+        if not queued:
+            return None
+        event = queued.pop(0)
+        if not queued:
+            _pending_events.pop(upload_uuid, None)
+        return event
+
+
+async def _wait_for_progress_signal(upload_uuid: str, timeout_seconds: float = 20.0) -> None:
+    async with _event_lock:
+        signal = _stream_signals.get(upload_uuid)
+        if signal is None:
+            signal = asyncio.Event()
+            _stream_signals[upload_uuid] = signal
+
+    try:
+        await asyncio.wait_for(signal.wait(), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        return
+
+    async with _event_lock:
+        signal.clear()
 
 
 def build_media_url(path: str, request: Request) -> str:
@@ -127,4 +197,66 @@ async def get_result(upload_uuid: str, request: Request, db: Session = Depends(g
         ],
         files=[(f.name, build_upload_media_url(upload_uuid, f.name, request)) for f in output_files],
         status_percent=db_input.percent_progress,
+    )
+
+
+@router.post("/events/notify")
+async def notify_event(payload: NotifyEventPayload):
+    progress_event = ProgressEvent(
+        uuid=payload.uuid,
+        task=payload.task,
+        event=payload.event,
+        status_percent=payload.status_percent,
+        result_ready=payload.result_ready,
+    )
+    await _enqueue_progress_event(progress_event)
+    return {"ok": True}
+
+
+@router.get("/events/{upload_uuid}")
+async def stream_events(upload_uuid: str, request: Request, db: Session = Depends(get_db)):
+    db_input, db_output = get_mock_result(db, upload_uuid)
+    if not db_input:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    initial_payload = {
+        "uuid": upload_uuid,
+        "event": "snapshot",
+        "task": None,
+        "status_percent": int(db_input.percent_progress),
+        "result_ready": bool(db_output),
+        "source": "db_snapshot",
+    }
+
+    async def event_generator():
+        yield _format_sse_message(initial_payload)
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            pending = await _pop_progress_event(upload_uuid)
+            if pending is not None:
+                event_payload = {
+                    "uuid": pending.uuid,
+                    "event": pending.event,
+                    "task": pending.task,
+                    "status_percent": pending.status_percent,
+                    "result_ready": bool(pending.result_ready),
+                    "source": "webhook",
+                }
+                yield _format_sse_message(event_payload)
+                continue
+
+            await _wait_for_progress_signal(upload_uuid)
+            yield b": keepalive\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

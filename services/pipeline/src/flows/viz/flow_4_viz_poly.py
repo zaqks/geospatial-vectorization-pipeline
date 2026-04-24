@@ -10,7 +10,7 @@ from plombery import get_logger, register_pipeline, task
 from rasterio.features import rasterize
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_TIFF_PATH = Path("data/georef.tif")
 INPUT_LEGEND_PATH = Path("data/legend_class_geo.csv")
@@ -66,6 +66,11 @@ async def viz_poly_masks(params: WorkspaceParams):
                 "[viz-poly] No polygon GeoJSON files found under %s", input_geojson_dir
             )
             update_input_progress(upload_uuid, 95)
+            notify_api_progress(
+                upload_uuid,
+                task="4_viz_poly.viz_poly_masks",
+                status_percent=95,
+            )
             trigger_result = tirrger_flow("5_export_output", upload_uuid)
             return {
                 "uuid": upload_uuid,
@@ -114,6 +119,11 @@ async def viz_poly_masks(params: WorkspaceParams):
             mask_count += 1
 
         update_input_progress(upload_uuid, 95)
+        notify_api_progress(
+            upload_uuid,
+            task="4_viz_poly.viz_poly_masks",
+            status_percent=95,
+        )
         logger.info(
             "[viz-poly] Generated %s polygon masks in %s", mask_count, output_viz_dir
         )

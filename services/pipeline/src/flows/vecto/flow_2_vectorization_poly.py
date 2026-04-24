@@ -11,7 +11,7 @@ from shapely.geometry import shape
 from tqdm import tqdm
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
 INPUT_LEGEND_PATH = Path("data/legend_class_geo.csv")
@@ -104,6 +104,11 @@ async def vectorize_poly(params: WorkspaceParams):
         #     Image.fromarray(out).save(output_dir / f"{class_name}.png")
 
         update_input_progress(upload_uuid, 55)
+        notify_api_progress(
+            upload_uuid,
+            task="2_vectorization_poly.vectorize_poly",
+            status_percent=55,
+        )
         logger.info("[poly] Progress updated to 55%%")
         trigger_result = tirrger_flow("3_clean_noise_poly", upload_uuid)
         return {"uuid": upload_uuid, "next": "3_clean_noise_poly", "trigger": trigger_result}

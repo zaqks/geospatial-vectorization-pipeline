@@ -5,6 +5,7 @@ import shutil
 from plombery import get_logger, register_pipeline, task
 
 from ...utils.service import (
+    notify_api_progress,
     update_input_progress,
     upsert_output_archive_from_workspace_async,
 )
@@ -37,6 +38,12 @@ async def zip_output(params: WorkspaceParams):
     )
 
     logger.info("[export] Created output archive at %s", archive_path)
+    await asyncio.to_thread(
+        notify_api_progress,
+        upload_uuid,
+        task="5_export_output.zip_output",
+        status_percent=95,
+    )
     return {
         "uuid": upload_uuid,
         "archive": str(archive_path),
@@ -71,6 +78,12 @@ async def export_output(params: WorkspaceParams):
         )
 
         update_input_progress(upload_uuid, 100)
+        notify_api_progress(
+            upload_uuid,
+            task="5_export_output.export_output",
+            status_percent=100,
+            result_ready=True,
+        )
         logger.info("[export] Progress updated to 100%%")
 
         return {

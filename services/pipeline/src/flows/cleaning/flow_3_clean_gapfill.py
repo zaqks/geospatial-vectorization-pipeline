@@ -8,7 +8,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_GEOJSON_PATH = Path("output/vect/poly/water.geojson")
 OUTPUT_GEOJSON_PATH = Path("output/vect/poly/water.geojson")
@@ -96,6 +96,11 @@ async def clean_gapfill(params: WorkspaceParams):
         # Image.fromarray(out).save(output_mask_path)
 
         update_input_progress(upload_uuid, 90)
+        notify_api_progress(
+            upload_uuid,
+            task="3_clean_gapfill.clean_gapfill",
+            status_percent=90,
+        )
         logger.info("[gapfill] Progress updated to 90%%")
         trigger_result = tirrger_flow("4_viz_line", upload_uuid)
         return {"uuid": upload_uuid, "next": "4_viz_line", "trigger": trigger_result}

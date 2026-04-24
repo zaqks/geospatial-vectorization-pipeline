@@ -3,7 +3,7 @@ import asyncio
 
 from plombery import get_logger, register_pipeline, task
 
-from ...utils.service import update_input_progress_async
+from ...utils.service import notify_api_progress, update_input_progress_async
 from .common import WorkspaceParams, workspace_paths
 
 
@@ -18,6 +18,13 @@ async def clean_workspace(params: WorkspaceParams):
         await asyncio.to_thread(shutil.rmtree, workspace_dir)
 
     await update_input_progress_async(upload_uuid, 100)
+    await asyncio.to_thread(
+        notify_api_progress,
+        upload_uuid,
+        task="6_clean_workspace.clean_workspace",
+        status_percent=100,
+        result_ready=True,
+    )
 
     logger.info("Workspace cleaned at %s (existed=%s)", workspace_dir, existed)
     return {

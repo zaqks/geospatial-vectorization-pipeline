@@ -9,7 +9,7 @@ from plombery import get_logger, register_pipeline, task
 from ...utils._db import SessionLocal
 from ...utils.models import Input
 from ...utils.hf_storage import download_from_hf
-from ...utils.service import tirrger_flow, update_input_progress_async
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress_async
 from .common import WorkspaceParams, workspace_paths
 
 
@@ -44,6 +44,12 @@ async def setup_workspace(params: WorkspaceParams):
 
     await asyncio.to_thread(_save_png)
     await update_input_progress_async(upload_uuid, 1)
+    await asyncio.to_thread(
+        notify_api_progress,
+        upload_uuid,
+        task="0_setup_workspace.setup_workspace",
+        status_percent=1,
+    )
 
     logger.info("Workspace prepared at %s", workspace_dir)
     return {
@@ -70,6 +76,12 @@ async def init_legend(params: WorkspaceParams):
     colors_target_path = data_dir / "colors.csv"
     await asyncio.to_thread(shutil.copy2, LEGEND_SOURCE_PATH, legend_target_path)
     await asyncio.to_thread(shutil.copy2, COLORS_SOURCE_PATH, colors_target_path)
+    await asyncio.to_thread(
+        notify_api_progress,
+        upload_uuid,
+        task="0_setup_workspace.init_legend",
+        status_percent=1,
+    )
     trigger_result = await asyncio.to_thread(tirrger_flow, "1_georef", upload_uuid)
 
     logger.info(

@@ -1,6 +1,5 @@
 const COOKIE_NAME = "upload_uuid";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-const POLL_INTERVAL_MS = 5000;
 const FETCH_TIMEOUT_MS = 180 * 1000;
 const FETCH_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
@@ -43,7 +42,7 @@ const messageText = document.getElementById("message-text");
 const themeToggle = document.getElementById("theme-toggle");
 
 let activeUuid = null;
-let pollTimer = null;
+let statusEventSource = null;
 let previewUrl = null;
 let statusMode = "processing";
 
@@ -266,10 +265,10 @@ async function fetchWithRetry(url, options = {}, { timeoutMs = FETCH_TIMEOUT_MS,
   }
 }
 
-function stopPolling() {
-  if (pollTimer) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
+function stopStatusStream() {
+  if (statusEventSource) {
+    statusEventSource.close();
+    statusEventSource = null;
   }
 }
 
@@ -464,37 +463,87 @@ function renderResult(data) {
   showOnly(resultPanel);
 }
 
-async function pollOnce() {
+async function fetchResultForActiveUpload() {
   if (!activeUuid) {
     return;
   }
 
-  try {
-    const response = await fetchWithRetry(buildUrl(`/api/result/${activeUuid}`));
+  const response = await fetchWithRetry(buildUrl(`/api/result/${activeUuid}`));
+  const data = await response.json();
+  const percent = Number(data.status_percent ?? 0);
+  setProgress(percent);
 
-    const data = await response.json();
-    const percent = Number(data.status_percent ?? 0);
+  if (percent >= 100 && data.img_url) {
+    setResultReceived(activeUuid, true);
+    renderResult(data);
+    return;
+  }
+
+  showOnly(statusPanel);
+}
+
+async function handleStatusEventPayload(data) {
+  const percentValue = data?.status_percent;
+  const hasPercent = Number.isFinite(Number(percentValue));
+  const percent = hasPercent ? Number(percentValue) : null;
+
+  if (percent !== null) {
     setProgress(percent);
+  }
 
-    if (percent >= 100 && data.img_url) {
-      setResultReceived(activeUuid, true);
-      stopPolling();
-      renderResult(data);
-    } else {
-      showOnly(statusPanel);
+  const shouldLoadResult = Boolean(data?.result_ready) || (percent !== null && percent >= 100);
+  if (!shouldLoadResult) {
+    showOnly(statusPanel);
+    return;
+  }
+
+  try {
+    await fetchResultForActiveUpload();
+    if (hasReceivedResult(activeUuid)) {
+      stopStatusStream();
     }
   } catch (error) {
-    stopPolling();
-    showMessage(error instanceof Error ? error.message : "Polling failed.");
+    showMessage(error instanceof Error ? error.message : "Failed to load result.");
   }
 }
 
-function startPolling(mode = "processing") {
-  stopPolling();
+function startStatusStream(mode = "processing") {
+  stopStatusStream();
   setStatusMode(mode);
   showOnly(statusPanel);
-  pollOnce();
-  pollTimer = window.setInterval(pollOnce, POLL_INTERVAL_MS);
+
+  if (!activeUuid) {
+    return;
+  }
+
+  const stream = new EventSource(buildUrl(`/api/events/${activeUuid}`));
+  statusEventSource = stream;
+
+  stream.onmessage = (event) => {
+    if (!event?.data) {
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(event.data);
+      void handleStatusEventPayload(payload);
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : "Invalid stream payload.");
+    }
+  };
+
+  stream.onerror = async () => {
+    if (!activeUuid) {
+      return;
+    }
+
+    // EventSource auto-reconnects; this one-off fetch keeps UI fresh when stream blips.
+    try {
+      await fetchResultForActiveUpload();
+    } catch {
+      // Ignore transient failures; EventSource will retry.
+    }
+  };
 }
 
 async function handleUpload(event) {
@@ -550,7 +599,7 @@ async function handleUpload(event) {
     setCookie(COOKIE_NAME, activeUuid, COOKIE_MAX_AGE);
     setResultReceived(activeUuid, false);
     setProgress(0);
-    startPolling("processing");
+    startStatusStream("processing");
   } catch (error) {
     uploadForm.dataset.processing = "false";
     setInputsDisabled(false);
@@ -559,7 +608,7 @@ async function handleUpload(event) {
 }
 
 function resetForNewMap() {
-  stopPolling();
+  stopStatusStream();
   activeUuid = null;
   clearCookie(COOKIE_NAME);
   clearMessage();
@@ -630,10 +679,10 @@ function init() {
     activeUuid = rememberedUuid;
     setInputsDisabled(true);
     if (hasReceivedResult(activeUuid)) {
-      startPolling("loading-result");
+      startStatusStream("loading-result");
     } else {
       setProgress(0);
-      startPolling("processing");
+      startStatusStream("processing");
     }
     return;
   }

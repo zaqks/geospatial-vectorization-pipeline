@@ -13,7 +13,7 @@ from shapely.geometry import LineString, shape
 from skimage.morphology import skeletonize
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_RASTER_PATH = Path("data/georef.tif")
 INPUT_LEGEND_PATH = Path("data/legend_class_geo.csv")
@@ -65,6 +65,11 @@ async def vectorize_dotted(params: WorkspaceParams):
         if not mask.any():
             logger.info("[dotted] No railway pixels found in raster")
             update_input_progress(upload_uuid, 40)
+            notify_api_progress(
+                upload_uuid,
+                task="2_vectorization_dotted.vectorize_dotted",
+                status_percent=40,
+            )
             logger.info("[dotted] Progress updated to 40%%")
             trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
             return {
@@ -144,6 +149,11 @@ async def vectorize_dotted(params: WorkspaceParams):
             # Image.fromarray(out_img).save(output_dir / f"{TARGET_CLASS}.png")
 
         update_input_progress(upload_uuid, 40)
+        notify_api_progress(
+            upload_uuid,
+            task="2_vectorization_dotted.vectorize_dotted",
+            status_percent=40,
+        )
         logger.info("[dotted] Progress updated to 40%%")
         trigger_result = tirrger_flow("2_vectorization_poly", upload_uuid)
         return {

@@ -8,7 +8,7 @@ from shapely.validation import make_valid
 from tqdm import tqdm
 
 from ..workspace.common import WorkspaceParams, run_gc_cleanup, workspace_paths
-from ...utils.service import tirrger_flow, update_input_progress
+from ...utils.service import notify_api_progress, tirrger_flow, update_input_progress
 
 INPUT_FOLDER = Path("output/vect/poly")
 OUTPUT_FOLDER = Path("output/vect/poly")
@@ -98,6 +98,11 @@ async def clean_noise_poly(params: WorkspaceParams):
             logger.info("[noise] Cleaned %s", geojson_path.name)
 
         update_input_progress(upload_uuid, 70)
+        notify_api_progress(
+            upload_uuid,
+            task="3_clean_noise_poly.clean_noise_poly",
+            status_percent=70,
+        )
         logger.info("[noise] Progress updated to 70%%")
         trigger_result = tirrger_flow("3_clean_gapfill", upload_uuid)
         return {"uuid": upload_uuid, "next": "3_clean_gapfill", "trigger": trigger_result}
