@@ -1,4 +1,3 @@
-# %%
 import os
 from pathlib import Path
 
@@ -18,20 +17,20 @@ OUTPUT_DIR = Path("output/viz")
 TARGET_CRS = "EPSG:3857"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-# %%
+
+
 def save_png(arr: np.ndarray, path: Path):
     Image.fromarray(arr).save(path, format="PNG", optimize=False)
-# %%
+
+
 # -----------------------
 # Load class → value map
-# %%
 # -----------------------
 df = pd.read_csv(CSV_PATH).dropna(subset=["class", "z"])
 z_map = dict(zip(df["class"].astype(str), df["z"].astype(int)))
-# %%
+
 # -----------------------
 # Load raster reference
-# %%
 # -----------------------
 with rasterio.open(TIFF_PATH) as src:
     transform = src.transform
@@ -46,19 +45,17 @@ with rasterio.open(TIFF_PATH) as src:
 
 if str(crs) != TARGET_CRS:
     raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
-# %%
+
 # -----------------------
 # Load ALL GeoJSON once
-# %%
 # -----------------------
 geojson_map = {
     p.stem: gpd.read_file(p)
     for p in GEOJSON_DIR.glob("*.geojson")
 }
-# %%
+
 # -----------------------
 # Build ONE raster (key optimization)
-# %%
 # -----------------------
 shapes = []
 
@@ -87,10 +84,9 @@ class_raster = rasterize(
     fill=0,
     dtype=np.uint16,   # important: supports many classes
 )
-# %%
+
 # -----------------------
 # Generate outputs per class (fast NumPy ops)
-# %%
 # -----------------------
 for cls_name, z in tqdm(z_map.items()):
 

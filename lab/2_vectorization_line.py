@@ -1,4 +1,3 @@
-# %%
 import os
 import numpy as np
 import pandas as pd
@@ -9,10 +8,9 @@ from shapely.geometry import shape
 from rasterio.features import shapes, rasterize
 from skimage.morphology import closing, disk, skeletonize, remove_small_objects
 from PIL import Image
-# %%
+
 # -------------------------
 # CONFIG
-# %%
 # -------------------------
 raster_path = "data/el_harrach_georef.tif"
 output_dir = "output/vect/line"
@@ -24,23 +22,21 @@ MIN_OBJECT_SIZE_M2 = 500  # Minimum size in square meters
 MIN_LINE_LENGTH = 2   
 SIMPLIFY_TOLERANCE = 0.3 # 0.3
 TARGET_CRS = "EPSG:3857"
-# %%
+
 # -------------------------
 # LEGEND & UTILS
-# %%
 # -------------------------
 df = pd.read_csv("data/legend_class_geo.csv")
 df = df[(df["geometry"] == "line") & (df["class"] != "railway")]
-# %%
+
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
     return (int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16))
 
 color_class_map = {hex_to_rgb(row["hex"]): row["class"] for _, row in df.iterrows()}
-# %%
+
 # -------------------------
 # READ RASTER
-# %%
 # -------------------------
 with rasterio.open(raster_path) as src:
     img = src.read()
@@ -55,10 +51,9 @@ if str(crs) != TARGET_CRS:
     raise ValueError(f"Expected raster CRS {TARGET_CRS}, got {crs}")
 
 img_np = np.transpose(img, (1, 2, 0))[:, :, :3].astype(np.int16)
-# %%
+
 # -------------------------
 # PROCESS EACH CLASS
-# %%
 # -------------------------
 for rgb, class_name in tqdm(color_class_map.items(), desc="Processing classes"):
     target = np.array(rgb, dtype=np.int16)

@@ -1,4 +1,3 @@
-# %%
 import os
 import geopandas as gpd
 import numpy as np
@@ -7,14 +6,14 @@ from rasterio.features import rasterize
 from PIL import Image
 from tqdm import tqdm
 from shapely.validation import make_valid
-# %%
+
 # -------------------------
 # CONFIG
-# %%
 # -------------------------
 TARGET_CRS = "EPSG:3857"
 # SIMPLIFY_TOL = 0.1  # adjust if needed
-# %%
+
+
 def clean_geometry(gdf, min_area_m2):
     """Full geometry cleaning pipeline"""
 
@@ -54,7 +53,8 @@ def clean_geometry(gdf, min_area_m2):
     gdf = gdf[~gdf.geometry.is_empty]
 
     return gdf
-# %%
+
+
 def clean_and_debug_vector(geojson_path, output_dir, min_area_m2, reference_raster_path):
     """
     Filters and cleans polygons from a GeoJSON and exports cleaned version + debug PNG.
@@ -108,10 +108,10 @@ def clean_and_debug_vector(geojson_path, output_dir, min_area_m2, reference_rast
         )
 
     print(f"Finished: {clean_geojson_path}")
-# %%
+
+
 # -------------------------
 # EXECUTION
-# %%
 # -------------------------
 from pathlib import Path
 

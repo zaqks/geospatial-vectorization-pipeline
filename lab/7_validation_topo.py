@@ -1,4 +1,3 @@
-# %%
 # ─────────────────────────────
     
 
@@ -12,7 +11,6 @@ import numpy as np
 # ─────────────────────────────────────────────
 # LOAD SAFE
 # ─────────────────────────────────────────────
-# %%
 def load(path):
     gdf = gpd.read_file(path)
     gdf = gdf[gdf.geometry.notnull()]
@@ -24,7 +22,6 @@ def load(path):
 # ─────────────────────────────────────────────
 # INTERSECTION CHECK (SAFE, SPATIAL INDEX)
 # ─────────────────────────────────────────────
-# %%
 def find_intersections(a, b):
 
     idx = b.sindex
@@ -50,7 +47,6 @@ def find_intersections(a, b):
 # ─────────────────────────────────────────────
 # VALIDATION RULES
 # ─────────────────────────────────────────────
-# %%
 def validate():
 
     print("Loading layers...")
@@ -120,7 +116,6 @@ def validate():
     # ─────────────────────────────
     # EXPORT ERROR LAYERS
     # ─────────────────────────────
-# %%
     def export(name, geom_list):
         if len(geom_list) == 0:
             return

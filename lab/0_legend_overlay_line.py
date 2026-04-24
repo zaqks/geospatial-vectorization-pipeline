@@ -1,13 +1,11 @@
-# %%
 import os
 import cv2
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-# %%
+
 # -------------------------
 # Setup & Config
-# %%
 # -------------------------
 df = pd.read_csv("data/legend_class_geo.csv")
 df = df[df["geometry"] == "line"].reset_index(drop=True)
@@ -27,10 +25,9 @@ output_dir = "output/overlays/line"
 os.makedirs(output_dir, exist_ok=True)
 
 print(f"Processing {len(df)} line classes...")
-# %%
+
 # -------------------------
 # Main Processing Loop
-# %%
 # -------------------------
 for i, row in tqdm(df.iterrows(), total=len(df), desc="Generating line overlays"):
     class_name = row["class"]
