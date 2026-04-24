@@ -237,18 +237,24 @@ input[type="text"]:focus {
   width: 100%;
   aspect-ratio: 1 / 1;
   min-height: 260px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  background: #000000;
 }
 
 .result-preview-loader {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 5;
   display: grid;
   place-content: center;
   justify-items: center;
   gap: 10px;
   text-align: center;
+  background: rgba(0, 0, 0, 0.52);
+  pointer-events: none;
+}
+
+.result-preview-loader[aria-busy="false"] {
+  display: none;
 }
 
 .result-preview-loader p {
@@ -277,6 +283,12 @@ input[type="text"]:focus {
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+#result-image.hidden,
+#result-image-fullscreen.hidden,
+.result-overlay-image.hidden {
+  display: none;
 }
 
 .result-fullscreen-modal {
@@ -327,6 +339,7 @@ input[type="text"]:focus {
   z-index: 0;
   width: 100%;
   height: 100%;
+  background: #000000;
 }
 
 #result-image-fullscreen {
@@ -344,13 +357,19 @@ input[type="text"]:focus {
   max-height: min(45vh, 360px);
   overflow: auto;
   z-index: 2147483647;
-  background: rgba(17, 21, 33, 0.82);
+  background: var(--overlay-float-bg);
+  border-color: var(--overlay-float-border);
   backdrop-filter: blur(10px);
 }
 
 .overlay-panel-floating .panel-heading,
 .overlay-panel-floating .overlay-toggle {
-  color: #f4f7ff;
+  color: var(--overlay-float-text);
+}
+
+.overlay-panel-floating .overlay-item {
+  background: var(--overlay-float-item-bg);
+  border-color: var(--overlay-float-item-border);
 }
 
 .result-overlays {

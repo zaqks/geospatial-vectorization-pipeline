@@ -20,6 +20,11 @@
   --chip-border: rgba(26, 171, 255, 0.3);
   --toggle-bg: rgba(20, 31, 52, 0.12);
   --toggle-thumb: #ffffff;
+  --overlay-float-bg: rgba(255, 255, 255, 0.82);
+  --overlay-float-border: rgba(20, 31, 52, 0.14);
+  --overlay-float-text: var(--text);
+  --overlay-float-item-bg: color-mix(in srgb, var(--surface) 90%, transparent);
+  --overlay-float-item-border: color-mix(in srgb, var(--border) 92%, transparent);
   --mono: "Space Mono", monospace;
   --sans: "Syne", sans-serif;
   --radius: 10px;
@@ -44,6 +49,11 @@ body[data-theme="dark"] {
   --chip-border: rgba(26, 171, 255, 0.2);
   --toggle-bg: rgba(255, 255, 255, 0.14);
   --toggle-thumb: #ffffff;
+  --overlay-float-bg: rgba(17, 21, 33, 0.82);
+  --overlay-float-border: rgba(255, 255, 255, 0.14);
+  --overlay-float-text: #f4f7ff;
+  --overlay-float-item-bg: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  --overlay-float-item-border: color-mix(in srgb, var(--border) 92%, transparent);
 }
 
 * {

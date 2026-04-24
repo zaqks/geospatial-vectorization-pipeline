@@ -394,6 +394,25 @@ async function renderResult(data) {
     overlayListFullscreen.innerHTML = "";
   }
 
+  let mapVisible = true;
+  const applyMapVisibility = (visible) => {
+    mapVisible = visible;
+    resultImage.classList.toggle("hidden", !visible);
+    if (resultImageFullscreen) {
+      resultImageFullscreen.classList.toggle("hidden", !visible);
+    }
+    inlineMapToggle.checkbox.checked = visible;
+    fullscreenMapToggle.checkbox.checked = visible;
+  };
+
+  const inlineMapToggle = createOverlayToggleItem("Map", true, applyMapVisibility);
+  const fullscreenMapToggle = createOverlayToggleItem("Map", true, applyMapVisibility);
+  overlayList.appendChild(inlineMapToggle.li);
+  if (overlayListFullscreen) {
+    overlayListFullscreen.appendChild(fullscreenMapToggle.li);
+  }
+  applyMapVisibility(true);
+
   const overlays = (Array.isArray(data.overlays) ? data.overlays : [])
     .filter((entry) => Array.isArray(entry) && entry.length >= 2)
     .map((entry, index) => {
