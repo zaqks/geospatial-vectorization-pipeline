@@ -33,6 +33,8 @@ Les verifications explicites du script couvrent notamment:
 
 Le script exporte ensuite des couches d'erreurs en GeoJSON (errors_*.geojson) pour audit cartographique.
 
+Ces conflits ne sont pas seulement detectes: ils servent aussi de base a une phase de nettoyage et de resolution contextuelle. L'idee est de conserver la classe la plus pertinente selon le contexte cartographique. Par exemple, en cas de chevauchement entre une route et un batiment, on privilegie la route et on ajuste ou retire la geometrie du batiment sur la zone de conflit.
+
 ### 4.4 Interet methodologique
 
 Cette approche permet:
