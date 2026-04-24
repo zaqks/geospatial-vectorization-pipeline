@@ -423,8 +423,7 @@ body.fullscreen-open {
   overflow: hidden;
 }
 
-body.fullscreen-open nav,
-body.fullscreen-open .app-topbar {
+body.fullscreen-open nav {
   opacity: 0;
   pointer-events: none;
 }
