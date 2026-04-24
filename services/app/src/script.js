@@ -5,6 +5,8 @@ const FETCH_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 const THEME_STORAGE_KEY = "geovec_theme";
 const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
+const RESULT_IMAGE_PREFIX = "geovec_result_image_";
+const OVERLAY_IMAGE_TIMEOUT_MS = 60 * 1000;
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
 const API_URL = String(RAW_API_URL).replace(/\/$/, "");
@@ -45,6 +47,8 @@ let activeUuid = null;
 let statusEventSource = null;
 let previewUrl = null;
 let statusMode = "processing";
+let pendingUploadImageDataUrl = null;
+const overlayObjectUrls = new Set();
 
 function resultReceivedKey(uuid) {
   return `${RESULT_RECEIVED_PREFIX}${uuid}`;
@@ -56,6 +60,34 @@ function setResultReceived(uuid, received) {
   }
 
   window.localStorage.setItem(resultReceivedKey(uuid), received ? "true" : "false");
+}
+
+function resultImageKey(uuid) {
+  return `${RESULT_IMAGE_PREFIX}${uuid}`;
+}
+
+function setResultImage(uuid, dataUrl) {
+  if (!uuid || !dataUrl) {
+    return;
+  }
+
+  window.localStorage.setItem(resultImageKey(uuid), dataUrl);
+}
+
+function getResultImage(uuid) {
+  if (!uuid) {
+    return null;
+  }
+
+  return window.localStorage.getItem(resultImageKey(uuid));
+}
+
+function clearResultImage(uuid) {
+  if (!uuid) {
+    return;
+  }
+
+  window.localStorage.removeItem(resultImageKey(uuid));
 }
 
 function hasReceivedResult(uuid) {
@@ -108,6 +140,29 @@ function clearPreview() {
 
   uploadPreviewImage.removeAttribute("src");
   uploadPreviewFigure.classList.add("hidden");
+}
+
+function clearOverlayObjectUrls() {
+  overlayObjectUrls.forEach((objectUrl) => {
+    URL.revokeObjectURL(objectUrl);
+  });
+  overlayObjectUrls.clear();
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    };
+
+    reader.onerror = () => {
+      reject(reader.error || new Error("Failed to read image file."));
+    };
+
+    reader.readAsDataURL(file);
+  });
 }
 
 function updatePreview() {
@@ -371,12 +426,33 @@ function createOverlayToggleItem(label, checked, onChange) {
   return { li, checkbox };
 }
 
-function renderResult(data) {
-  const imageUrl = buildUrl(data.img_url || "");
-  resultImage.src = imageUrl;
-  if (resultImageFullscreen) {
-    resultImageFullscreen.src = imageUrl;
+async function loadOverlayImage(imgElement, url) {
+  if (!imgElement || !url) {
+    return;
   }
+
+  try {
+    const response = await fetchWithTimeout(url, {}, OVERLAY_IMAGE_TIMEOUT_MS);
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    overlayObjectUrls.add(objectUrl);
+    imgElement.src = objectUrl;
+  } catch {
+    imgElement.removeAttribute("src");
+  }
+}
+
+function renderResult(data) {
+  const imageSource = getResultImage(activeUuid) || buildUrl(data.img_url || "");
+  resultImage.src = imageSource;
+  if (resultImageFullscreen) {
+    resultImageFullscreen.src = imageSource;
+  }
+  clearOverlayObjectUrls();
   resultOverlays.innerHTML = "";
   if (resultOverlaysFullscreen) {
     resultOverlaysFullscreen.innerHTML = "";
@@ -404,13 +480,11 @@ function renderResult(data) {
     const overlayId = `overlay-${index}`;
 
     const inlineOverlayImg = document.createElement("img");
-    inlineOverlayImg.src = overlayUrl;
     inlineOverlayImg.alt = label;
     inlineOverlayImg.className = "result-overlay-image";
     inlineOverlayImg.dataset.overlayId = overlayId;
 
     const fullscreenOverlayImg = document.createElement("img");
-    fullscreenOverlayImg.src = overlayUrl;
     fullscreenOverlayImg.alt = label;
     fullscreenOverlayImg.className = "result-overlay-image";
     fullscreenOverlayImg.dataset.overlayId = overlayId;
@@ -422,6 +496,11 @@ function renderResult(data) {
     resultOverlays.appendChild(inlineOverlayImg);
     if (resultOverlaysFullscreen) {
       resultOverlaysFullscreen.appendChild(fullscreenOverlayImg);
+    }
+
+    void loadOverlayImage(inlineOverlayImg, overlayUrl);
+    if (resultOverlaysFullscreen) {
+      void loadOverlayImage(fullscreenOverlayImg, overlayUrl);
     }
 
     const applyOverlayVisibility = (visible) => {
@@ -569,6 +648,8 @@ async function handleUpload(event) {
   }
 
   const { lat1, lng1, lat2, lng2 } = parsedCoords;
+  const selectedFile = fileInput.files[0];
+  const imageDataUrlPromise = readFileAsDataUrl(selectedFile).catch(() => null);
 
   const bbox = {
     points: [
@@ -599,8 +680,11 @@ async function handleUpload(event) {
     setCookie(COOKIE_NAME, activeUuid, COOKIE_MAX_AGE);
     setResultReceived(activeUuid, false);
     setProgress(0);
+    pendingUploadImageDataUrl = await imageDataUrlPromise;
+    setResultImage(activeUuid, pendingUploadImageDataUrl);
     startStatusStream("processing");
   } catch (error) {
+    pendingUploadImageDataUrl = null;
     uploadForm.dataset.processing = "false";
     setInputsDisabled(false);
     showMessage(error instanceof Error ? error.message : "Upload failed.");
@@ -609,7 +693,10 @@ async function handleUpload(event) {
 
 function resetForNewMap() {
   stopStatusStream();
+  clearOverlayObjectUrls();
+  clearResultImage(activeUuid);
   activeUuid = null;
+  pendingUploadImageDataUrl = null;
   clearCookie(COOKIE_NAME);
   clearMessage();
 
@@ -680,6 +767,7 @@ function init() {
     setInputsDisabled(true);
     if (hasReceivedResult(activeUuid)) {
       startStatusStream("loading-result");
+      void fetchResultForActiveUpload();
     } else {
       setProgress(0);
       startStatusStream("processing");
