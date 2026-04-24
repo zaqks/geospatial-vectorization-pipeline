@@ -1,5 +1,4 @@
 # ─────────────────────────────
-    
 
 
 import geopandas as gpd
@@ -52,16 +51,15 @@ def validate():
     print("Loading layers...")
 
     roads_auto = load_clean("output/vect/line2/route_final_clean2.geojson")
-    roads_nat  = load_clean("output/vect/line2/autoroute_final_clean.geojson")
-    roads_st   = load_clean("output/vect/line2/street_final_clean.geojson")
+    roads_nat = load_clean("output/vect/line2/autoroute_final_clean.geojson")
+    roads_st = load_clean("output/vect/line2/street_final_clean.geojson")
 
-    
-    buildings  = load_clean("output/vect/poly/buildings_clean2.geojson")
-    water      = load_clean("output/vect/poly/water_clean.geojson")
-    res        = load_clean("output/vect/poly/residential_clean.geojson")
-    area       = load_clean("output/vect/poly/area_clean.geojson")
-    grass      = load("output/vect/poly/grass_clean.geojson")
-    metro      = load("output/vect/poly/surrounding metro.geojson")
+    buildings = load_clean("output/vect/poly/buildings_clean2.geojson")
+    water = load_clean("output/vect/poly/water_clean.geojson")
+    res = load_clean("output/vect/poly/residential_clean.geojson")
+    area = load_clean("output/vect/poly/area_clean.geojson")
+    grass = load("output/vect/poly/grass_clean.geojson")
+    metro = load("output/vect/poly/surrounding metro.geojson")
 
     print("Running validations...\n")
 
@@ -75,9 +73,7 @@ def validate():
     # 2. BUILDINGS vs ROADS
     # ─────────────────────────────
     all_roads = gpd.GeoSeries(
-        list(roads_auto.geometry) +
-        list(roads_nat.geometry) +
-        list(roads_st.geometry)
+        list(roads_auto.geometry) + list(roads_nat.geometry) + list(roads_st.geometry)
     )
 
     br = find_intersections(buildings, gpd.GeoDataFrame(geometry=all_roads))
@@ -119,8 +115,9 @@ def validate():
     def export(name, geom_list):
         if len(geom_list) == 0:
             return
-        gpd.GeoDataFrame(geometry=geom_list, crs=roads_auto.crs)\
-            .to_file(f"errors_{name}.geojson", driver="GeoJSON")
+        gpd.GeoDataFrame(geometry=geom_list, crs=roads_auto.crs).to_file(
+            f"errors_{name}.geojson", driver="GeoJSON"
+        )
 
     export("buildings_water", bw)
     export("buildings_roads", br)
@@ -137,4 +134,4 @@ def validate():
 # RUN
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
-    validate()  
+    validate()
