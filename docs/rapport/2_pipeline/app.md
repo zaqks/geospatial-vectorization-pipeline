@@ -13,7 +13,7 @@ Le changement est important sur le plan methodologique. On ne traite plus un sim
 - Hugging Face sert de bucket objet pour les fichiers volumineux,
 - GitHub Actions automatise le deploiement sur les Spaces HF.
 
-Cette separation est celle d une architecture orientee donnees. Elle est plus adaptee qu une application classique monolithique, car la charge principale n est pas une logique CRUD, mais la manipulation de rasters, de GeoJSON, de masques PNG et d artefacts de taille variable.
+Cette separation est celle d une architecture orientee donnees. Elle est plus adaptee qu une application classique monolithique, car la charge principale n est pas une logique CRUD, mais la manipulation de rasters, de GeoJSON, de masques PNG et d artefacts de taille variable lourde.
 
 ### 2. Du script au flow
 
@@ -266,24 +266,7 @@ Cette architecture est adaptee aux traitements intensifs pour plusieurs raisons:
 
 Du point de vue big data, le point le plus important est la dissociation entre orchestration et calcul. L API ne fait que router, persister et signaler. Le pipeline, lui, prend en charge les operations lourdes sur rasters, vecteurs et masques. Cette separation facilite ensuite une evolution vers du parallélisme plus fin ou une architecture a workers multiples.
 
-### 11. Limites actuelles et evolution possible
-
-L architecture est deja solide, mais elle reste perfectible sur plusieurs points.
-
-- la validation topologique metier n est pas encore un flow de production pleinement integre,
-- l orchestration reste basee sur des appels HTTP plutot que sur une file de messages dediee,
-- les traitements restent principalement organises autour d un workspace local par job,
-- la dependance a Hugging Face impose une bonne gestion des credentials et de la disponibilite reseau.
-
-La suite logique, si l on veut industrialiser davantage, serait de:
-
-- formaliser un flow topologique dedie,
-- ajouter une file de jobs pour absorber des pics de charge,
-- instrumenter des metriques CPU, RAM et latence par flow,
-- paralleliser davantage par tuiles ou fenetres raster,
-- renforcer la securite de l API et des credentials de deploiement.
-
-### 12. Conclusion
+### 11. Conclusion
 
 La version pipeline n est pas une simple duplication du code du labo. C est la transformation d une suite d experiments locaux en une architecture de calcul reproductible, observable et deployable. Les scripts ont fourni la logique geospatiale; les flows lui donnent une forme systemique.
 
@@ -296,4 +279,4 @@ Le resultat est une separation claire des responsabilites:
 - Hugging Face stocke,
 - GitHub Actions deploie.
 
-Cette decomposition est exactement ce qu il faut pour un traitement geospatial data-intensive a vocation academique et demonstrative.
+Cette decomposition est exactement ce qu il faut pour un traitement geospatial data-intensive.
