@@ -4,11 +4,93 @@ const MAP_DB_NAME = "geovec_maps";
 const MAP_DB_VERSION = 2;
 const MAP_STORE_NAME = "maps";
 const OVERLAY_STORE_NAME = "overlays";
+const MAP_BLOB_CACHE_PREFIX = "geovec_map_blob_";
+const OVERLAY_BLOB_CACHE_PREFIX = "geovec_overlay_blob_";
 
 let mapDbPromise = null;
 
 function resultReceivedKey(uuid) {
   return `${RESULT_RECEIVED_PREFIX}${uuid}`;
+}
+
+function mapBlobCacheKey(uuid) {
+  return `${MAP_BLOB_CACHE_PREFIX}${uuid}`;
+}
+
+function overlayBlobCacheKey(cacheKey) {
+  return `${OVERLAY_BLOB_CACHE_PREFIX}${cacheKey}`;
+}
+
+function dataUrlToBlob(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+    return null;
+  }
+
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) {
+    return null;
+  }
+
+  const header = dataUrl.slice(5, commaIndex);
+  const payload = dataUrl.slice(commaIndex + 1);
+  const isBase64 = /;base64/i.test(header);
+  const mimeType = header.split(";")[0] || "application/octet-stream";
+
+  try {
+    if (isBase64) {
+      const binary = window.atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return new Blob([bytes], { type: mimeType });
+    }
+
+    return new Blob([decodeURIComponent(payload)], { type: mimeType });
+  } catch {
+    return null;
+  }
+}
+
+async function blobToDataUrl(blob) {
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
+
+  return await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(typeof reader.result === "string" ? reader.result : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function readCachedBlob(cacheKey) {
+  if (!cacheKey) {
+    return null;
+  }
+
+  const cachedDataUrl = window.localStorage.getItem(cacheKey);
+  return dataUrlToBlob(cachedDataUrl);
+}
+
+async function writeCachedBlob(cacheKey, blob) {
+  if (!cacheKey || !(blob instanceof Blob)) {
+    return;
+  }
+
+  const dataUrl = await blobToDataUrl(blob);
+  if (!dataUrl) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(cacheKey, dataUrl);
+  } catch {
+    // Ignore storage quota failures and keep the IndexedDB copy.
+  }
 }
 
 export function setResultReceived(uuid, received) {
@@ -61,6 +143,8 @@ export async function saveMapBlob(uuid, blob) {
     return;
   }
 
+  await writeCachedBlob(mapBlobCacheKey(uuid), blob);
+
   const db = await openMapDb();
   if (!db) {
     return;
@@ -78,6 +162,11 @@ export async function saveMapBlob(uuid, blob) {
 export async function getMapBlob(uuid) {
   if (!uuid) {
     return null;
+  }
+
+  const cachedBlob = readCachedBlob(mapBlobCacheKey(uuid));
+  if (cachedBlob) {
+    return cachedBlob;
   }
 
   const db = await openMapDb();
@@ -124,6 +213,8 @@ export async function saveOverlayBlob(cacheKey, uuid, blob) {
     return;
   }
 
+  await writeCachedBlob(overlayBlobCacheKey(cacheKey), blob);
+
   const db = await openMapDb();
   if (!db) {
     return;
@@ -141,6 +232,11 @@ export async function saveOverlayBlob(cacheKey, uuid, blob) {
 export async function getOverlayBlob(cacheKey) {
   if (!cacheKey) {
     return null;
+  }
+
+  const cachedBlob = readCachedBlob(overlayBlobCacheKey(cacheKey));
+  if (cachedBlob) {
+    return cachedBlob;
   }
 
   const db = await openMapDb();

@@ -5,6 +5,7 @@ export const FETCH_RETRIES = 3;
 export const RETRY_DELAY_MS = 1000;
 export const THEME_STORAGE_KEY = "geovec_theme";
 export const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
+export const RESULT_PAYLOAD_PREFIX = "geovec_result_payload_";
 export const OVERLAY_IMAGE_TIMEOUT_MS = 60 * 1000;
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
