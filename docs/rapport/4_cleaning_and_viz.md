@@ -43,6 +43,17 @@ Le seuil min_area_m2 joue un role central:
 - il evite de conserver des polygones parasites dans des zones de forte densite graphique,
 - il limite la propagation de micro-objets dans les phases de validation ulterieures.
 
+Extrait minimal (depuis lab/3_clean_noise_poly.py):
+
+```py
+gdf["geometry"] = gdf["geometry"].apply(
+	lambda g: make_valid(g) if not g.is_valid else g
+)
+gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])]
+gdf["area"] = gdf.geometry.area
+gdf = gdf[gdf["area"] >= min_area_m2]
+```
+
 Le script produit ensuite deux sorties par couche nettoyee:
 
 - un GeoJSON nettoye,
@@ -64,6 +75,15 @@ Le workflow est le suivant:
 8. rasterisation du resultat pour produire un masque de controle.
 
 Le couple buffer(+BUFFER_DIST) / buffer(-BUFFER_DIST) agit comme une fermeture morphologique geometrique. Il permet de reconnecter des segments proches et de lisser des discontinuites fines sans reconstruire manuellement la couche.
+
+Extrait minimal (depuis lab/3_clean_gapfill.py):
+
+```py
+merged = unary_union(gdf.geometry)
+filled = merged.buffer(BUFFER_DIST).buffer(-BUFFER_DIST)
+filled = remove_holes(filled)
+filled = filled.simplify(SIMPLIFY_TOL)
+```
 
 La suppression des trous internes est importante dans un contexte cartographique:
 

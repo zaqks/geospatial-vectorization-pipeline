@@ -45,6 +45,17 @@ Ces fonctions assurent le passage entre:
 
 Cette conversion est fondamentale pour savoir exactement quelles tuiles telecharger et pour calculer ensuite l'emprise reelle de l'image mosaiquee.
 
+Extrait minimal (depuis lab/0_data.py):
+
+```py
+def latlon_to_tile(lat, lon, zoom):
+	lat_rad = math.radians(lat)
+	n = 2.0**zoom
+	x = int((lon + 180.0) / 360.0 * n)
+	y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+	return x, y
+```
+
 ### 1.4 Telechargement, cache local et assemblage
 
 Les tuiles sont recuperees depuis Carto basemaps (style voyager_nolabels) puis stockees dans un cache local:
@@ -56,6 +67,16 @@ Le cache permet:
 - la reproductibilite des essais,
 - la reduction des requetes reseau,
 - l'acceleration des relances de pipeline experimental.
+
+Extrait minimal (cache + telechargement):
+
+```py
+tile_path = f"{cache_dir}/{x}_{y}.png"
+if os.path.exists(tile_path):
+	tiles[(x, y)] = Image.open(tile_path).convert("RGB")
+else:
+	r = requests.get(url, headers=headers, timeout=10)
+```
 
 Apres telechargement, les tuiles sont "stitch" dans une image unique:
 

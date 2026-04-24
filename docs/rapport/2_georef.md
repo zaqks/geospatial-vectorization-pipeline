@@ -62,6 +62,16 @@ La transformation affine en decoule directement, en assurant la correspondance:
 
 Cette operation lie chaque pixel (colonne, ligne) a une coordonnee projetee continue.
 
+Extrait minimal (depuis lab/1_georef.py):
+
+```py
+transform = from_bounds(
+	min_x, min_y,
+	max_x, max_y,
+	width, height
+)
+```
+
 ### 2.5 Ecriture du GeoTIFF optimise
 
 Le script ecrit `data/el_harrach_georef.tif` avec les options suivantes:
@@ -74,6 +84,15 @@ Le script ecrit `data/el_harrach_georef.tif` avec les options suivantes:
 * tuilage interne 256x256.
 
 Ces parametres reduisent le volume disque et accelerent les lectures fenetrees lors des etapes de segmentation/vectorisation.
+
+Extrait minimal (ecriture GeoTIFF):
+
+```py
+with rasterio.open(output_tif, "w", driver="GTiff", crs="EPSG:3857", transform=transform) as dst:
+	dst.write(img_np[:, :, 0], 1)
+	dst.write(img_np[:, :, 1], 2)
+	dst.write(img_np[:, :, 2], 3)
+```
 
 ### 2.6 Validation effectuee en laboratoire
 
