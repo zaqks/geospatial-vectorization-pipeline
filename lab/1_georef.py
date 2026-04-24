@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# %%
 
 
 import math
@@ -11,7 +11,7 @@ import rasterio
 from rasterio.transform import from_bounds
 
 
-# In[2]:
+# %%
 
 
 # -----------------------------
@@ -34,7 +34,7 @@ south, north, west, east = (
 )
 # this is the fixed one
 # 36.69154743547263, 3.113250732421875, 36.732280756072015, 3.165435791015625
-# In[3]:
+# %%
 
 
 # -----------------------------
@@ -54,7 +54,7 @@ min_y = lat_to_y(south)
 max_y = lat_to_y(north)
 
 
-# In[5]:
+# %%
 
 
 # -----------------------------
@@ -65,7 +65,7 @@ img_np = np.array(img)
 height, width, bands = img_np.shape
 
 
-# In[6]:
+# %%
 
 
 # -----------------------------
@@ -79,7 +79,7 @@ transform = from_bounds(
 )
 
 
-# In[7]:
+# %%
 
 
 # -----------------------------

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# %%
 
 
 from PIL import Image
@@ -42,7 +42,7 @@ def extract_unique_colors_polars(image_path, resize=None):
     return result
 
 
-# In[2]:
+# %%
 
 
 res = extract_unique_colors_polars(
@@ -54,7 +54,7 @@ res = extract_unique_colors_polars(
 top = res
 
 
-# In[3]:
+# %%
 
 
 # Export CSV

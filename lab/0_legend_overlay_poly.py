@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# %%
 
 
 import pandas as pd
@@ -11,13 +11,13 @@ df = df[df["geometry"] == "polygon"]
 df.head()
 
 
-# In[3]:
+# %%
 
 import os
 os.makedirs("output/overlays/poly", exist_ok=True)
 
 
-# In[4]:
+# %%
 
 
 import numpy as np
