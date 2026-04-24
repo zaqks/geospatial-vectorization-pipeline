@@ -1,0 +1,110 @@
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  nav {
+    padding: 0 16px;
+  }
+
+  .nav-links,
+  .nav-right {
+    display: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 58px 20px 40px;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+  }
+
+  .app-section {
+    padding: 0 20px 60px;
+  }
+
+  .stage-wrap {
+    padding: 18px;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1060px) {
+  .result-visual-row {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .overlay-panel {
+    max-height: 58vh;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .coords-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-ctas,
+  .result-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .result-fullscreen-content {
+    padding: 12px;
+  }
+
+  .result-fullscreen-close {
+    top: 10px;
+    right: 10px;
+  }
+
+  .overlay-panel-floating {
+    right: 12px;
+    bottom: 12px;
+    width: min(300px, calc(100vw - 24px));
+    max-height: min(40vh, 280px);
+  }
+}

@@ -1,18 +1,17 @@
-const COOKIE_NAME = "upload_uuid";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-const FETCH_TIMEOUT_MS = 180 * 1000;
-const FETCH_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-const THEME_STORAGE_KEY = "geovec_theme";
-const RESULT_RECEIVED_PREFIX = "geovec_result_received_";
-const OVERLAY_IMAGE_TIMEOUT_MS = 60 * 1000;
-const MAP_DB_NAME = "geovec_maps";
-const MAP_DB_VERSION = 2;
-const MAP_STORE_NAME = "maps";
-const OVERLAY_STORE_NAME = "overlays";
-
-const RAW_API_URL = import.meta.env.VITE_API_URL || import.meta.env.API_URL || "";
-const API_URL = String(RAW_API_URL).replace(/\/$/, "");
+import { API_URL, COOKIE_MAX_AGE, COOKIE_NAME, THEME_STORAGE_KEY } from "./js/config.js";
+import { buildUrl, fetchWithRetry, loadOverlayImage } from "./js/network.js";
+import {
+  buildOverlayCacheKey,
+  clearLegacyResultImageCache,
+  deleteMapBlob,
+  deleteOverlayBlobs,
+  getMapBlob,
+  getOverlayBlob,
+  hasReceivedResult,
+  saveMapBlob,
+  saveOverlayBlob,
+  setResultReceived,
+} from "./js/storage.js";
 
 const uploadPanel = document.getElementById("upload-panel");
 const statusPanel = document.getElementById("status-panel");
@@ -51,214 +50,7 @@ let statusEventSource = null;
 let previewUrl = null;
 let statusMode = "processing";
 const overlayObjectUrls = new Set();
-let mapDbPromise = null;
 
-function resultReceivedKey(uuid) {
-  return `${RESULT_RECEIVED_PREFIX}${uuid}`;
-}
-
-function setResultReceived(uuid, received) {
-  if (!uuid) {
-    return;
-  }
-
-  window.localStorage.setItem(resultReceivedKey(uuid), received ? "true" : "false");
-}
-
-function openMapDb() {
-  if (mapDbPromise) {
-    return mapDbPromise;
-  }
-
-  if (!("indexedDB" in window)) {
-    return Promise.resolve(null);
-  }
-
-  mapDbPromise = new Promise((resolve) => {
-    const request = window.indexedDB.open(MAP_DB_NAME, MAP_DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(MAP_STORE_NAME)) {
-        db.createObjectStore(MAP_STORE_NAME, { keyPath: "uuid" });
-      }
-      if (!db.objectStoreNames.contains(OVERLAY_STORE_NAME)) {
-        db.createObjectStore(OVERLAY_STORE_NAME, { keyPath: "key" });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve(null);
-  });
-
-  return mapDbPromise;
-}
-
-async function saveMapBlob(uuid, blob) {
-  if (!uuid || !(blob instanceof Blob)) {
-    return;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const tx = db.transaction(MAP_STORE_NAME, "readwrite");
-    tx.objectStore(MAP_STORE_NAME).put({ uuid, blob, savedAt: Date.now() });
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-    tx.onabort = () => resolve();
-  });
-}
-
-async function getMapBlob(uuid) {
-  if (!uuid) {
-    return null;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return null;
-  }
-
-  return new Promise((resolve) => {
-    const tx = db.transaction(MAP_STORE_NAME, "readonly");
-    const request = tx.objectStore(MAP_STORE_NAME).get(uuid);
-    request.onsuccess = () => {
-      const record = request.result;
-      resolve(record?.blob instanceof Blob ? record.blob : null);
-    };
-    request.onerror = () => resolve(null);
-  });
-}
-
-async function deleteMapBlob(uuid) {
-  if (!uuid) {
-    return;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const tx = db.transaction(MAP_STORE_NAME, "readwrite");
-    tx.objectStore(MAP_STORE_NAME).delete(uuid);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-    tx.onabort = () => resolve();
-  });
-}
-
-function buildOverlayCacheKey(uuid, overlayName, index) {
-  return `${uuid}::${index}::${overlayName}`;
-}
-
-async function saveOverlayBlob(cacheKey, uuid, blob) {
-  if (!cacheKey || !uuid || !(blob instanceof Blob)) {
-    return;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const tx = db.transaction(OVERLAY_STORE_NAME, "readwrite");
-    tx.objectStore(OVERLAY_STORE_NAME).put({ key: cacheKey, uuid, blob, savedAt: Date.now() });
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-    tx.onabort = () => resolve();
-  });
-}
-
-async function getOverlayBlob(cacheKey) {
-  if (!cacheKey) {
-    return null;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return null;
-  }
-
-  return new Promise((resolve) => {
-    const tx = db.transaction(OVERLAY_STORE_NAME, "readonly");
-    const request = tx.objectStore(OVERLAY_STORE_NAME).get(cacheKey);
-    request.onsuccess = () => {
-      const record = request.result;
-      resolve(record?.blob instanceof Blob ? record.blob : null);
-    };
-    request.onerror = () => resolve(null);
-  });
-}
-
-async function deleteOverlayBlobs(uuid) {
-  if (!uuid) {
-    return;
-  }
-
-  const db = await openMapDb();
-  if (!db) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const tx = db.transaction(OVERLAY_STORE_NAME, "readwrite");
-    const store = tx.objectStore(OVERLAY_STORE_NAME);
-    const cursorRequest = store.openCursor();
-
-    cursorRequest.onsuccess = () => {
-      const cursor = cursorRequest.result;
-      if (!cursor) {
-        return;
-      }
-
-      const record = cursor.value;
-      if (record?.uuid === uuid) {
-        cursor.delete();
-      }
-
-      cursor.continue();
-    };
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve();
-    tx.onabort = () => resolve();
-  });
-}
-
-function clearLegacyResultImageCache() {
-  const keysToDelete = [];
-
-  for (let i = 0; i < window.localStorage.length; i += 1) {
-    const key = window.localStorage.key(i);
-    if (!key || !key.startsWith("geovec_result_image_")) {
-      continue;
-    }
-
-    const value = window.localStorage.getItem(key) || "";
-    if (value.startsWith("data:")) {
-      keysToDelete.push(key);
-    }
-  }
-
-  keysToDelete.forEach((key) => {
-    window.localStorage.removeItem(key);
-  });
-}
-
-function hasReceivedResult(uuid) {
-  if (!uuid) {
-    return false;
-  }
-
-  return window.localStorage.getItem(resultReceivedKey(uuid)) === "true";
-}
 
 function setStatusMode(mode) {
   const normalizedMode = ["processing", "loading-result", "rendering-preview"].includes(mode)
@@ -361,22 +153,6 @@ function updatePreview() {
   uploadPreviewFigure.classList.remove("hidden");
 }
 
-function buildUrl(path) {
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-
-  if (!API_URL) {
-    return path;
-  }
-
-  if (path.startsWith("/")) {
-    return `${API_URL}${path}`;
-  }
-
-  return `${API_URL}/${path}`;
-}
-
 function showOnly(panel) {
   [uploadPanel, statusPanel, resultPanel, messagePanel].forEach((el) => {
     if (!el) {
@@ -438,65 +214,6 @@ function getCookie(name) {
 
 function clearCookie(name) {
   document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-}
-
-function wait(ms) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function fetchWithRetry(url, options = {}, { timeoutMs = FETCH_TIMEOUT_MS, retries = FETCH_RETRIES } = {}) {
-  let attempt = 0;
-
-  while (true) {
-    try {
-      const response = await fetchWithTimeout(url, options, timeoutMs);
-      if (response.ok) {
-        return response;
-      }
-
-      const isRetryableStatus = response.status === 429 || response.status >= 500;
-      if (attempt < retries && isRetryableStatus) {
-        attempt += 1;
-        await wait(RETRY_DELAY_MS * attempt);
-        continue;
-      }
-
-      throw new Error(`Request failed (${response.status})`);
-    } catch (error) {
-      const isAbortError = error instanceof DOMException && error.name === "AbortError";
-      const isNetworkError = error instanceof TypeError || isAbortError;
-
-      if (attempt < retries && isNetworkError) {
-        attempt += 1;
-        await wait(RETRY_DELAY_MS * attempt);
-        continue;
-      }
-
-      if (isAbortError) {
-        throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
-      }
-
-      throw error;
-    }
-  }
 }
 
 function stopStatusStream() {
@@ -603,24 +320,6 @@ function createOverlayToggleItem(label, checked, onChange) {
   li.appendChild(toggleLabel);
 
   return { li, checkbox };
-}
-
-async function loadOverlayImage(url) {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const response = await fetchWithTimeout(url, {}, OVERLAY_IMAGE_TIMEOUT_MS);
-    if (!response.ok) {
-      throw new Error(`Request failed (${response.status})`);
-    }
-
-    const blob = await response.blob();
-    return blob;
-  } catch {
-    return null;
-  }
 }
 
 async function renderResult(data) {
