@@ -20,7 +20,7 @@ End-to-end pipeline for converting satellite and scanned imagery into structured
 ┌────────▼────────┐     ┌───────────▼────────┐
 │  API            │     │  Pipeline (async)  │
 │  (FastAPI)      │     │  (Plombery)        │
-│  :8000          │     │  :7860             │
+│  :7860          │     │  :7860             │
 └────────┬────────┘     └────────┬───────────┘
          │                       │
          └───────────┬───────────┘
@@ -50,7 +50,7 @@ FastAPI backend exposing REST endpoints:
 
 Manages job submission to pipeline and tracks processing via SSE (Server-Sent Events).
 
-**Runs at:** `localhost:8000` | Docs: `localhost:8000/docs`
+**Runs at:** `localhost:8000` | Docs: `localhost:8000/docs` | Docker port: `7860`
 
 ### App (`services/app`)
 Vite-based SPA for uploading geospatial images & visualizing results.
