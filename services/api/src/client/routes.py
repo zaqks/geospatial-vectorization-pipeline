@@ -1,12 +1,13 @@
 import asyncio
 import json
+import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Union
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/api", tags=["processing"])
 
 API_URL = os.getenv("API_URL", "").rstrip("/")
 MEDIA_URL = os.getenv("MEDIA_URL", "").rstrip("/")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -133,6 +135,7 @@ def _parse_bounding_box(bounding_box: str):
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     bounding_box: str = Form(...),
     db: Session = Depends(get_db),
@@ -161,13 +164,14 @@ async def upload(
         lng2,
     )
 
-    try:
-        await asyncio.to_thread(trigger_pipeline_with_retry, upload_uuid)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Upload saved but failed to trigger pipeline: {exc}",
-        ) from exc
+    def _trigger_pipeline_task(job_uuid: str) -> None:
+        try:
+            trigger_pipeline_with_retry(job_uuid)
+        except Exception:
+            logger.exception("Failed to trigger pipeline for uuid=%s", job_uuid)
+
+    # Return immediately; pipeline trigger runs after the response is sent.
+    background_tasks.add_task(_trigger_pipeline_task, upload_uuid)
 
     return UploadResponse(uuid=upload_uuid)
 
