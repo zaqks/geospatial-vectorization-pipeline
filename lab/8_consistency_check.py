@@ -1,17 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-"""
-fast_compare_osm_correct.py
-────────────────────────────
-Fast + correct evaluation of predicted GeoJSONs vs OSM ground truth.
-
-Fixes:
-- Correct precision/recall definition (bounded [0,1])
-- Symmetric matching (GT ↔ Pred)
-- STRtree acceleration
-- No unary_union (RAM-safe)
-"""
-
 import os
 import warnings
 
@@ -22,6 +10,7 @@ import geopandas as gpd
 import osmnx as ox
 from shapely.strtree import STRtree
 from tqdm import tqdm
+
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -63,10 +52,7 @@ def load_pred(path, bbox=None):
     gdf = gdf[gdf.geometry.notnull() & ~gdf.geometry.is_empty]
 
     if bbox is not None:
-        try:
-            gdf = gpd.clip(gdf, bbox)
-        except:
-            pass
+        gdf = gpd.clip(gdf, bbox)
 
     return gdf
 
@@ -82,16 +68,6 @@ def build_tree(geoms):
 # CORRECT METRICS (SYMMETRIC)
 # ─────────────────────────────────────────────
 def symmetric_match_metrics(pred_gdf, gt_gdf):
-    """
-    Correct evaluation:
-    - precision = correct_pred / total_pred
-    - recall    = correct_gt / total_gt
-    - F1        = harmonic mean
-
-    Matching rule:
-    - A feature is "correct" if it intersects ANY counterpart
-    """
-
     if pred_gdf is None or gt_gdf is None:
         return 0.0, 0.0, 0.0
 
@@ -107,9 +83,7 @@ def symmetric_match_metrics(pred_gdf, gt_gdf):
     if pred_tree is None or gt_tree is None:
         return 0.0, 0.0, 0.0
 
-    # ────────────────
     # GT → Pred (recall)
-    # ────────────────
     gt_hits = 0
     for g in gt_list:
         if g.is_empty:
@@ -118,9 +92,7 @@ def symmetric_match_metrics(pred_gdf, gt_gdf):
         if any(g.intersects(pred_list[i]) for i in idxs):
             gt_hits += 1
 
-    # ────────────────
     # Pred → GT (precision)
-    # ────────────────
     pred_hits = 0
     for p in pred_list:
         if p.is_empty:
@@ -131,7 +103,6 @@ def symmetric_match_metrics(pred_gdf, gt_gdf):
 
     recall = gt_hits / len(gt_list) if gt_list else 0.0
     precision = pred_hits / len(pred_list) if pred_list else 0.0
-
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
     return precision, recall, f1
@@ -157,15 +128,12 @@ gt = {}
 
 
 def fetch(tags, name):
-    try:
-        gdf = ox.features_from_place(PLACE, tags)
-        gdf = gdf.to_crs(TARGET_CRS)
-        gdf = gdf[gdf.geometry.notnull() & ~gdf.geometry.is_empty]
-        gdf = gpd.clip(gdf, bbox)
-        gt[name] = gdf
-        print(f"  {name:<18}: {len(gdf)}")
-    except Exception as e:
-        print(f"  {name:<18}: FAILED ({e})")
+    gdf = ox.features_from_place(PLACE, tags)
+    gdf = gdf.to_crs(TARGET_CRS)
+    gdf = gdf[gdf.geometry.notnull() & ~gdf.geometry.is_empty]
+    gdf = gpd.clip(gdf, bbox)
+    gt[name] = gdf
+    print(f"{name:<18}: {len(gdf)}")
 
 
 fetch({"building": True}, "building")
@@ -173,25 +141,22 @@ fetch({"natural": ["water", "wetland"], "waterway": True}, "water")
 fetch({"landuse": ["residential"]}, "residential area")
 fetch({"landuse": ["grass", "meadow", "park"], "natural": "grassland"}, "grass")
 
+
 # roads
-try:
-    G = ox.graph_from_place(PLACE, network_type="drive")
-    edges = ox.graph_to_gdfs(G, nodes=False).to_crs(TARGET_CRS)
+G = ox.graph_from_place(PLACE, network_type="drive")
+edges = ox.graph_to_gdfs(G, nodes=False).to_crs(TARGET_CRS)
 
-    highway_map = {
-        "autoroute": ["motorway", "trunk"],
-        "route_nationale": ["primary", "secondary"],
-        "street": ["tertiary", "residential", "service"],
-    }
+highway_map = {
+    "autoroute": ["motorway", "trunk"],
+    "route_nationale": ["primary", "secondary"],
+    "street": ["tertiary", "residential", "service"],
+}
 
-    for k, v in highway_map.items():
-        subset = edges[edges["highway"].astype(str).isin(v)]
-        subset = gpd.clip(subset, bbox)
-        gt[k] = subset
-        print(f"  {k:<18}: {len(subset)}")
-
-except Exception as e:
-    print("roads failed:", e)
+for k, v in highway_map.items():
+    subset = edges[edges["highway"].astype(str).isin(v)]
+    subset = gpd.clip(subset, bbox)
+    gt[k] = subset
+    print(f"{k:<18}: {len(subset)}")
 
 fetch({"railway": ["rail", "tram", "subway"]}, "railway")
 
@@ -204,7 +169,6 @@ print("\n[2/3] Computing metrics...\n")
 results = []
 
 for cls, path in tqdm(PREDICTED.items(), desc="Classes"):
-
     pred = load_pred(path, bbox)
     is_line = cls in LINE_CLASSES
 
@@ -226,14 +190,12 @@ for cls, path in tqdm(PREDICTED.items(), desc="Classes"):
         gt_gdf["geometry"] = gt_gdf.buffer(LINE_BUFFER_M)
 
     precision, recall, f1 = symmetric_match_metrics(pred, gt_gdf)
-
     results.append((cls, "OK", precision, recall, f1))
 
 
 # ─────────────────────────────────────────────
 # STEP 4 — REPORT
 # ─────────────────────────────────────────────
-
 print("\n" + "=" * 60)
 print(f"{'CLASS':<20} {'PREC':>8} {'REC':>8} {'F1':>8}")
 print("-" * 60)
@@ -248,7 +210,6 @@ for cls, status, p, r, f in results:
     prec_list.append(p)
     rec_list.append(r)
     f1_list.append(f)
-
     print(f"{cls:<20} {p*100:7.1f}% {r*100:7.1f}% {f*100:7.1f}%")
 
 print("-" * 60)
@@ -262,8 +223,8 @@ if prec_list:
     )
 print("=" * 60)
 
-print("\n")
 
+print("\n")
 print("PRECISION (PREC):")
 print("Measures how many of the predicted positive results are actually correct.")
 print("It focuses on avoiding false positives.\n")
