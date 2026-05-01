@@ -1,10 +1,15 @@
-# geospatial-vectorization-pipeline
 
-<img src="./docs/screen.png" width=100%>
+# geospatial vectorization pipeline
 
-End-to-end pipeline for converting satellite and scanned imagery into structured geospatial vector data, including georeferencing, database creation, and topology validation.
+End-to-end pipeline for converting satellite and scanned imagery into structured geospatial vector data, including georeferencing, cleaning, and topology validation.
+
+## Screenshots
 
 <img src="./docs/screen2.png" width=100%>
+
+
+
+<img src="./docs/screen.png" width=100%>
 <img src="./docs/screen3.png" width=100%>
 
 ## Architecture
