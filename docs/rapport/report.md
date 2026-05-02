@@ -1,3 +1,12 @@
+<img src="images/app_and_stuff/3_result_2.png" alt="Zoomed vectorization result" width="100%">
+
+# Designing a Scalable AI-Powered Geospatial Data Pipeline: From Raster Images to Topologically Valid GIS Data with MLOps and CI/CD
+
+***“Pixels Are for Seeing, Vectors Are for Building: Automating Map Intelligence”***
+
+This report presents the geovectorization pipeline to bridge the gap between raw map images and professional GIS data. It turns messy pixels into structured geographic features by combining georeferencing, segmentation, cleaning, and topological validation, so a map image becomes something that can actually be used in tools like QGIS or ArcGIS.
+
+
 ## 1. Data Acquisition (scripts)
 
 ### 1.1 Step Objective
