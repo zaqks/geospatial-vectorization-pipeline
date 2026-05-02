@@ -1,10 +1,87 @@
-<img src="images/app_and_stuff/3_result_2.png" alt="Zoomed vectorization result" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/3_result_2.png" alt="Zoomed vectorization result" width="100%">
 
-# Designing a Scalable AI-Powered Geospatial Data Pipeline: From Raster Images to Topologically Valid GIS Data with MLOps and CI/CD
+# Designing a Scalable AI-Powered Geospatial Data Pipeline For Automating Map Intelligence: From Raster Images to Topologically Valid GIS Data with Ops and CI/CD
 
-***“Pixels Are for Seeing, Vectors Are for Building: Automating Map Intelligence”***
+
+> *“Pixels Are for Seeing, Vectors Are for Building”*
+
+
+## Intro
 
 This report presents the geovectorization pipeline to bridge the gap between raw map images and professional GIS data. It turns messy pixels into structured geographic features by combining georeferencing, segmentation, cleaning, and topological validation, so a map image becomes something that can actually be used in tools like QGIS or ArcGIS.
+
+<br>    
+
+
+**Author:** ELADJ Salim Zakaria 
+**Source Code:** https://github.com/zaqks/geospatial-vectorization-pipeline
+
+
+## Table of Contents
+  - [1. Data Acquisition (scripts)](#1.-data-acquisition-(scripts))
+    - [1.1 Step Objective](#1.1-step-objective)
+    - [1.2 Spatial Delimitation of the Study Area](#1.2-spatial-delimitation-of-the-study-area)
+    - [1.3 Geographic to Tile Grid Conversion](#1.3-geographic-to-tile-grid-conversion)
+    - [1.4 Downloading, Local Cache, and Assembly](#1.4-downloading,-local-cache,-and-assembly)
+    - [1.5 Color Signature Extraction](#1.5-color-signature-extraction)
+    - [1.6 Visual Verification of the Legend](#1.6-visual-verification-of-the-legend)
+    - [1.7 Outputs and Artifacts of the Acquisition Phase](#1.7-outputs-and-artifacts-of-the-acquisition-phase)
+    - [1.8 Conclusion](#1.8-conclusion)
+    - [1.9 Figures (script captures)](#1.9-figures-(script-captures))
+  - [2. Georeferencing (scripts)](#2.-georeferencing-(scripts))
+    - [2.1 Scientific and Technical Challenge](#2.1-scientific-and-technical-challenge)
+    - [2.2 Inputs](#2.2-inputs)
+    - [2.3 Spatial Reference System](#2.3-spatial-reference-system)
+    - [2.4 Construction of the Affine Transform](#2.4-construction-of-the-affine-transform)
+    - [2.5 Writing an Optimized GeoTIFF](#2.5-writing-an-optimized-geotiff)
+    - [2.6 Validation Performed in the Lab](#2.6-validation-performed-in-the-lab)
+    - [2.7 Outputs and Impact on the Experimental Pipeline](#2.7-outputs-and-impact-on-the-experimental-pipeline)
+    - [2.8 Conclusion](#2.8-conclusion)
+    - [2.9 QGIS Verification Figure](#2.9-qgis-verification-figure)
+  - [3. Vectorization and Post-Processing (scripts)](#3.-vectorization-and-post-processing-(scripts))
+    - [3.1 General Principle](#3.1-general-principle)
+    - [3.2 Polygon Vectorization](#3.2-polygon-vectorization)
+    - [3.3 Continuous Line Vectorization](#3.3-continuous-line-vectorization)
+    - [3.4 Dotted Line Vectorization (railway)](#3.4-dotted-line-vectorization-(railway))
+    - [3.5 Geometric Cleaning of Polygons](#3.5-geometric-cleaning-of-polygons)
+    - [3.6 Targeted Gap Filling on the Water Class](#3.6-targeted-gap-filling-on-the-water-class)
+    - [3.7 Control Visualization (visual validation step)](#3.7-control-visualization-(visual-validation-step))
+    - [3.8 Vector Outputs](#3.8-vector-outputs)
+    - [3.9 Conclusion](#3.9-conclusion)
+  - [4. Geometric Cleaning and Control Visualization (scripts)](#4.-geometric-cleaning-and-control-visualization-(scripts))
+    - [4.1 Role in the Processing Chain](#4.1-role-in-the-processing-chain)
+    - [4.2 Geometric Cleaning of Polygons](#4.2-geometric-cleaning-of-polygons)
+    - [4.3 Specialized Treatment of the Water Class](#4.3-specialized-treatment-of-the-water-class)
+    - [4.4 Control Visualization of Vector Outputs](#4.4-control-visualization-of-vector-outputs)
+    - [4.5 Methodological Interest](#4.5-methodological-interest)
+    - [4.6 Conclusion](#4.6-conclusion)
+    - [4.7 Figures (cleaning and gap filling)](#4.7-figures-(cleaning-and-gap-filling))
+  - [4. Topological Validation (scripts)](#4.-topological-validation-(scripts))
+    - [4.1 Objective](#4.1-objective)
+    - [4.2 Control Strategy](#4.2-control-strategy)
+    - [4.3 Implemented Validation Rules](#4.3-implemented-validation-rules)
+    - [4.4 Methodological Interest](#4.4-methodological-interest)
+    - [4.5 Lab Section Conclusion](#4.5-lab-section-conclusion)
+  - [Industrialized Pipeline: From Lab Prototype to Flow Orchestration](#industrialized-pipeline:-from-lab-prototype-to-flow-orchestration)
+    - [1. General Positioning](#1.-general-positioning)
+    - [2. From Script to Flow](#2.-from-script-to-flow)
+    - [3. Overall System Architecture](#3.-overall-system-architecture)
+    - [4. Ingestion and Control on the API Side](#4.-ingestion-and-control-on-the-api-side)
+    - [5. Real-Time Channel and Execution Return](#5.-real-time-channel-and-execution-return)
+    - [6. Hugging Face Object Storage and PostgreSQL Role](#6.-hugging-face-object-storage-and-postgresql-role)
+    - [7. Compute Flows and Correspondence with Lab Scripts](#7.-compute-flows-and-correspondence-with-lab-scripts)
+      - [7.1 Flow 0: Workspace Preparation](#7.1-flow-0:-workspace-preparation)
+      - [7.2 Flow 1: Georeferencing](#7.2-flow-1:-georeferencing)
+      - [7.3 Flow 2: Vectorization](#7.3-flow-2:-vectorization)
+      - [7.4 Flow 3: Geometric Cleaning and Gap Filling](#7.4-flow-3:-geometric-cleaning-and-gap-filling)
+      - [7.5 Flow 4: Control Visualization](#7.5-flow-4:-control-visualization)
+      - [7.6 Flow 5: Final Export](#7.6-flow-5:-final-export)
+    - [8. Topological Validation and Its Place in the Pipeline](#8.-topological-validation-and-its-place-in-the-pipeline)
+    - [9. GitHub Actions and Deployment to Hugging Face Spaces](#9.-github-actions-and-deployment-to-hugging-face-spaces)
+    - [10. Infrastructure, HPC, and Big Data](#10.-infrastructure,-hpc,-and-big-data)
+    - [11. Conclusion](#11.-conclusion)
+    - [12. Figures (web application and pipeline dashboard)](#12.-figures-(web-application-and-pipeline-dashboard))
+
 
 
 ## 1. Data Acquisition (scripts)
@@ -150,7 +227,7 @@ Despite these limitations, the acquisition phase provides a robust experimental 
 
 Figure 1 - High-resolution map download (input)
 
-<img src="images/scripts/0_input.png" alt="High resolution map download" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/0_input.png" alt="High resolution map download" width="100%">
 
 ## 2. Georeferencing (scripts)
 
@@ -283,7 +360,7 @@ This file becomes the single input to the vectorization chain:
 
 Figure 2 - First verification of vectorization and georeferencing in QGIS
 
-<img src="images/scripts/1_qgis_georef_check_poly.png" alt="QGIS georef and vectorization verification" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/1_qgis_georef_check_poly.png" alt="QGIS georef and vectorization verification" width="100%">
 
 ## 3. Vectorization and Post-Processing (scripts)
 
@@ -560,27 +637,27 @@ This step is essential: it transforms raw vectorization outputs into more stable
 
 Figure 3 - Before polygon cleaning (noise and spurious points)
 
-<img src="images/scripts/2_before_poly_clean.png" alt="Before polygon cleaning" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/2_before_poly_clean.png" alt="Before polygon cleaning" width="100%">
 
 Figure 4 - After polygon cleaning
 
-<img src="images/scripts/2_after_poly_clean.png" alt="After polygon cleaning" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/2_after_poly_clean.png" alt="After polygon cleaning" width="100%">
 
 Figure 5 - Before gap filling (river with interruptions)
 
-<img src="images/scripts/3_before_gapfill.png" alt="Before gap filling" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/3_before_gapfill.png" alt="Before gap filling" width="100%">
 
 Figure 6 - After gap filling
 
-<img src="images/scripts/3_after_gapfill.png" alt="After gap filling" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/3_after_gapfill.png" alt="After gap filling" width="100%">
 
 Figure 7 - Final result (without OSM)
 
-<img src="images/scripts/4_final_result_noosm.png" alt="Final result without OSM" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/4_final_result_noosm.png" alt="Final result without OSM" width="100%">
 
 Figure 8 - Final result (with OSM)
 
-<img src="images/scripts/4_final_result_osm.png" alt="Final result with OSM" width="100%">
+<img src="http://127.0.0.1:8000/images/scripts/4_final_result_osm.png" alt="Final result with OSM" width="100%">
 
 ## 4. Topological Validation (scripts)
 
@@ -929,20 +1006,20 @@ This decomposition is exactly what is needed for data-intensive geospatial proce
 
 Figure 9 - Home screen of the web application
 
-<img src="images/app_and_stuff/1_home.png" alt="Home screen webapp" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/1_home.png" alt="Home screen webapp" width="100%">
 
 Figure 10 - User input section
 
-<img src="images/app_and_stuff/1_home_input.png" alt="User input section" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/1_home_input.png" alt="User input section" width="100%">
 
 Figure 11 - Vectorization result (view 1)
 
-<img src="images/app_and_stuff/3_result_1.png" alt="Vectorization result" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/3_result_1.png" alt="Vectorization result" width="100%">
 
 Figure 12 - Zoomed vectorization result (view 2)
 
-<img src="images/app_and_stuff/3_result_2.png" alt="Zoomed vectorization result" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/3_result_2.png" alt="Zoomed vectorization result" width="100%">
 
 Figure 13 - Pipeline dashboard capture
 
-<img src="images/app_and_stuff/4_pipeline_dashbaord.png" alt="Dashboard pipeline" width="100%">
+<img src="http://127.0.0.1:8000/images/app_and_stuff/4_pipeline_dashbaord.png" alt="Dashboard pipeline" width="100%">
