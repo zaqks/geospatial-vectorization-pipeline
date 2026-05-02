@@ -1,202 +1,202 @@
-## Pipeline industrialise: du prototype labo aux flows orchestration
+## Industrialized Pipeline: From Lab Prototype to Flow Orchestration
 
-### 1. Positionnement general
+### 1. General Positioning
 
-Dans le prototype de laboratoire, chaque etape du traitement geospatial a d abord ete exprimee sous forme de scripts autonomes: acquisition, georeferencement, vectorisation, nettoyage, visualisation et validation topologique. La version pipeline reprend exactement cette logique fonctionnelle, mais la transforme en une suite de flows declenchables, observables et deploies dans une infrastructure separee du front de saisie.
+In the laboratory prototype, each step of geospatial processing was first expressed as autonomous scripts: acquisition, georeferencing, vectorization, cleaning, visualization and topological validation. The pipeline version follows exactly this functional logic, but transforms it into a suite of triggerable, observable flows deployed in infrastructure separate from the input frontend.
 
-Le changement est important sur le plan methodologique. On ne traite plus un simple outil de traitement local, mais un systeme de calcul distribue ou:
+This change is significant from a methodological standpoint. We are no longer dealing with a simple local processing tool, but a distributed computing system where:
 
-- le frontend ne fait que collecter les entrees utilisateur et presenter l etat d avancement,
-- l API joue le role de plan de controle,
-- le pipeline porte le calcul geospatial lourd,
-- PostgreSQL conserve les metadonnees et l etat des jobs,
-- Hugging Face sert de bucket objet pour les fichiers volumineux,
-- GitHub Actions automatise le deploiement sur les Spaces HF.
+- the frontend only collects user inputs and presents progress status,
+- the API plays the control plane role,
+- the pipeline carries heavy geospatial computation,
+- PostgreSQL maintains metadata and job state,
+- Hugging Face serves as object bucket for large files,
+- GitHub Actions automates deployment to HF Spaces.
 
-Cette separation est celle d une architecture orientee donnees. Elle est plus adaptee qu une application classique monolithique, car la charge principale n est pas une logique CRUD, mais la manipulation de rasters, de GeoJSON, de masques PNG et d artefacts de taille variable lourde.
+This separation is that of a data-oriented architecture. It is more suitable than a classical monolithic application, because the main load is not CRUD logic, but manipulation of rasters, GeoJSON, PNG masks and large variable-sized artifacts.
 
-### 2. Du script au flow
+### 2. From Script to Flow
 
-Le passage du labo au pipeline ne consiste pas a reescrire la logique geospatiale. Il consiste a l encapsuler dans des frontieres d execution plus robustes.
+The transition from lab to pipeline does not consist of rewriting geospatial logic. It consists of encapsulating it within more robust execution boundaries.
 
-Dans le repertoire lab, les scripts servent de prototype scientifique:
+In the lab directory, scripts serve as scientific prototype:
 
-- `1_georef.py` pour la mise en referentiel,
-- `2_vectorization_*.py` pour la segmentation et l extraction vectorielle,
-- `3_clean_*.py` pour le nettoyage geometrique et le gap filling,
-- `6_viz_*.py` pour la visualisation de controle,
-- `7_validation_topo.py` pour les regles de validation topologique.
+- `1_georef.py` for referencing,
+- `2_vectorization_*.py` for segmentation and vector extraction,
+- `3_clean_*.py` for geometric cleaning and gap filling,
+- `6_viz_*.py` for control visualization,
+- `7_validation_topo.py` for topological validation rules.
 
-Dans `services/pipeline`, ces etapes deviennent des flows Plombery. Le code metier reste proche, mais l execution est recomposee autour de plusieurs proprietes techniques:
+In `services/pipeline`, these steps become Plombery flows. The business logic remains close, but execution is recomposed around several technical properties:
 
-- etapes atomiques et chainables,
-- progression publiee a chaque sous-tache,
-- reprises plus faciles en cas d echec,
-- workspace isole par UUID,
-- echanges de donnees via fichiers locaux temporaires plutot que via memoire partagee.
+- atomic and chainable steps,
+- progress published at each subtask,
+- easier recovery in case of failure,
+- workspace isolated by UUID,
+- data exchange via temporary local files rather than shared memory.
 
-Le pipeline se comporte ainsi comme une machine a etats de traitement geospatial plutot que comme une simple fonction unique.
+The pipeline thus behaves as a state machine for geospatial processing rather than a simple single function.
 
-### 3. Architecture globale du systeme
+### 3. Overall System Architecture
 
-Le systeme complet repose sur trois services applicatifs et deux couches d infrastructure.
+The complete system rests on three application services and two infrastructure layers.
 
-Le frontend Vite, dans `services/app`, fournit l interface de saisie et de consultation. Il recoit un fichier, une bounding box a deux points et ouvre ensuite un flux SSE pour suivre l execution.
+The Vite frontend, in `services/app`, provides the input and consultation interface. It receives a file, a bounding box with two points and then opens an SSE stream to track execution.
 
-L API FastAPI, dans `services/api`, recoit l upload, valide la structure des entrees, persiste les metadonnees, envoie l image vers Hugging Face, puis declenche le pipeline via un appel HTTP vers le service de calcul.
+The FastAPI API, in `services/api`, receives the upload, validates input structure, persists metadata, sends the image to Hugging Face, then triggers the pipeline via HTTP call to the compute service.
 
-Le pipeline, dans `services/pipeline`, execute les transformations geospatiales lourdes dans une base `pangeo/pangeo-notebook:6f9fda2`, ce qui apporte nativement Python 3.12, GDAL, GEOS et les briques geospatiales necessaires.
+The pipeline, in `services/pipeline`, executes heavy geospatial transformations in a `pangeo/pangeo-notebook:6f9fda2` container, which natively provides Python 3.12, GDAL, GEOS and necessary geospatial components.
 
-PostgreSQL stocke les objets relationnels suivants:
+PostgreSQL stores the following relational objects:
 
-- `inputs` pour les entrees utilisateur et l avancement,
-- `outputs` pour le lien 1-1 avec l entree,
-- `output_files` pour les artefacts exportes,
-- `overlay_images` pour les masques de visualisation.
+- `inputs` for user inputs and progress,
+- `outputs` for 1-1 link with input,
+- `output_files` for exported artifacts,
+- `overlay_images` for visualization masks.
 
-Hugging Face sert de stockage objet externe. Les fichiers lourds n y sont pas copies sous forme de blob en base, mais sous forme de chemins de type bucket/repository. Cette approche reduit fortement la taille des transactions SQL et permet de deplacer les artefacts sans surcharger PostgreSQL.
+Hugging Face serves as external object storage. Large files are not copied as blobs in the database, but as bucket/repository type paths. This approach greatly reduces SQL transaction size and allows moving artifacts without overloading PostgreSQL.
 
-### 4. Ingestion et controle cote API
+### 4. Ingestion and Control on API Side
 
-Le point d entree applicatif est `POST /api/upload`.
+The application entry point is `POST /api/upload`.
 
-Le frontend envoie un formulaire multipart contenant:
+The frontend sends a multipart form containing:
 
-- le fichier image,
-- la bounding box serialisee sous la forme `{"points":[{"lat":...,"lng":...},{"lat":...,"lng":...}]}`.
+- the image file,
+- the bounding box serialized as `{"points":[{"lat":...,"lng":...},{"lat":...,"lng":...}]}`.
 
-L API applique plusieurs traitements de controle:
+The API applies several control treatments:
 
-- validation de la structure JSON,
-- conversion des points en quatre bornes numeriques,
-- generation d un UUID de job,
-- transfert de l image vers le bucket Hugging Face,
-- creation de la ligne `Input` en base avec progression initiale a `0`.
+- JSON structure validation,
+- conversion of points into four numeric bounds,
+- job UUID generation,
+- image transfer to Hugging Face bucket,
+- creation of `Input` row in database with initial progress at `0`.
 
-L API ne lance pas directement les traitements geospatiaux. Elle sert de passerelle transactionnelle entre le monde utilisateur et la couche de calcul. Une fois l upload persisté, elle appelle `trigger_pipeline_with_retry`, qui contacte le premier flow du pipeline avec politique de retry et timeout. Ce point est essentiel: si le pipeline met quelques secondes a demarrer ou si le service est momentanement indisponible, le front ne bloque pas en attente d un calcul synchrone.
+The API does not directly launch geospatial processes. It serves as transactional gateway between user world and compute layer. Once upload is persisted, it calls `trigger_pipeline_with_retry`, which contacts the first pipeline flow with retry policy and timeout. This point is essential: if the pipeline takes a few seconds to start or if the service is momentarily unavailable, the frontend does not block waiting for synchronous computation.
 
-Cette logique transforme une requete web classique en tache asynchrone traitee hors bande.
+This logic transforms a classic web request into an asynchronous task processed out-of-band.
 
-### 5. Canal temps reel et retour d execution
+### 5. Real-Time Channel and Execution Return
 
-La consultation de l avancement se fait via Server-Sent Events.
+Progress consultation is done via Server-Sent Events.
 
-Le frontend ouvre `GET /api/events/{uuid}` juste apres l envoi de l upload. Le backend retourne d abord un snapshot issu de la base, puis relaie les evenements publies par le pipeline via `POST /api/events/notify`.
+The frontend opens `GET /api/events/{uuid}` right after sending the upload. The backend first returns a snapshot from the database, then relays events published by the pipeline via `POST /api/events/notify`.
 
-Ce mecanisme repond a deux besoins:
+This mechanism addresses two needs:
 
-- donner un retour immediat a l utilisateur,
-- eviter de faire du polling agressif sur l API.
+- give immediate feedback to the user,
+- avoid aggressive polling on the API.
 
-En sortie, `GET /api/result/{uuid}` assemble l URL du preview, la liste des overlays et la liste des fichiers exportes. Le frontend peut alors afficher le resultat final et conserver certains etats locaux pour accelerer les consultations suivantes.
+As output, `GET /api/result/{uuid}` assembles the preview URL, list of overlays and list of exported files. The frontend can then display the final result and maintain certain local states to accelerate subsequent requests.
 
-Dans cette architecture, le SSE joue le role de bus leger de progression. Il ne remplace pas la persistance, mais il la complete avec une couche UX temps reel.
+In this architecture, SSE plays the role of lightweight progress bus. It does not replace persistence, but completes it with a real-time UX layer.
 
-### 6. Stockage objet Hugging Face et role de PostgreSQL
+### 6. Hugging Face Object Storage and PostgreSQL Role
 
-Le systeme fait une separation stricte entre metadonnees et payloads.
+The system makes a strict separation between metadata and payloads.
 
-PostgreSQL porte le controle transactionnel:
+PostgreSQL carries transactional control:
 
-- UUID de job,
-- nom du fichier,
-- ref de stockage,
-- bornes geographiques,
-- pourcentage de progression,
-- relations entre entree, export et overlays.
+- job UUID,
+- file name,
+- storage ref,
+- geographic bounds,
+- progress percentage,
+- relations between input, exports and overlays.
 
-Hugging Face porte les fichiers:
+Hugging Face carries files:
 
-- image d entree uploadée,
-- GeoJSON exportes,
-- archive `output.zip`,
-- images de visualisation,
-- masques PNG.
+- uploaded input image,
+- exported GeoJSON,
+- `output.zip` archive,
+- visualization images,
+- PNG masks.
 
-Le chemin de stockage est derive de l UUID, ce qui donne une structure stable et previsible du type `uploads/<uuid>/input/<name>`. Le bucket par defaut est configure par `HF_BUCKET_REPO_ID` et la connexion repose sur `HF_TOKEN`.
+The storage path is derived from UUID, giving a stable and predictable structure of type `uploads/<uuid>/input/<name>`. The default bucket is configured by `HF_BUCKET_REPO_ID` and connection relies on `HF_TOKEN`.
 
-Cette conception est plus robuste qu un stockage integral en base pour trois raisons:
+This design is more robust than integral database storage for three reasons:
 
-- elle evite d alourdir les tables avec de gros binaires,
-- elle permet de versionner ou migrer les artefacts comme des objets independants,
-- elle facilite le partage entre API et pipeline sans duplication de logique de serialization.
+- it avoids burdening tables with large binaries,
+- it allows versioning or migrating artifacts as independent objects,
+- it facilitates sharing between API and pipeline without duplicating serialization logic.
 
-### 7. Flows de calcul et correspondance avec les scripts lab
+### 7. Compute Flows and Correspondence with Lab Scripts
 
-Le pipeline reprend la sequence scientifique du laboratoire, mais la rend executable et reproductible dans un environnement serveur.
+The pipeline follows the scientific sequence of the laboratory, but makes it executable and reproducible in a server environment.
 
-#### 7.1 Flow 0: preparation du workspace
+#### 7.1 Flow 0: Workspace Preparation
 
-`0_setup_workspace` initialise un workspace isole sous `/tmp/<uuid>`.
+`0_setup_workspace` initializes an isolated workspace under `/tmp/<uuid>`.
 
-Ses responsabilites sont les suivantes:
+Its responsibilities are as follows:
 
-- creer l arborescence locale de calcul,
-- recuperer l image depuis Hugging Face a partir de `Input.image_ref`,
-- la reconvertir en PNG local de travail,
-- copier les fichiers de configuration metier `legend_class_geo.csv` et `colors.csv`,
-- notifier le backend de la progression initiale,
-- enchaîner vers le georeferencement.
+- create local compute directory structure,
+- retrieve image from Hugging Face using `Input.image_ref`,
+- reconvert to local working PNG,
+- copy business configuration files `legend_class_geo.csv` and `colors.csv`,
+- notify backend of initial progress,
+- chain to georeferencing.
 
-Cette etape est la charniere entre le plan de controle et le plan de donnees. Elle garantit que chaque job a son propre espace de travail et que les flows suivants n ont pas a dependre d etats globaux partages.
+This step is the hinge between control plane and data plane. It guarantees each job has its own workspace and following flows do not depend on shared global states.
 
-#### 7.2 Flow 1: georeferencement
+#### 7.2 Flow 1: Georeferencing
 
-Le flow de georeferencement transforme l image brute en GeoTIFF spatialement coherent.
+The georeferencing flow transforms the raw image into spatially coherent GeoTIFF.
 
-Il recupere les bornes stockees en base, les remet dans le bon ordre, puis construit une transformation affine en partant de la bbox utilisateur. Le raster est ecrit avec compression et tuilage internes pour reduire la taille disque et optimiser les lectures partielles.
+It retrieves bounds stored in database, puts them in correct order, then builds affine transformation starting from user bbox. The raster is written with internal compression and tiling to reduce disk size and optimize partial reads.
 
-Le resultat de ce flow devient la reference commune pour toutes les etapes suivantes. C est a partir de ce point que l image n est plus seulement un document, mais un raster georeference exploitable comme support geospatial.
+The result of this flow becomes the common reference for all following steps. From this point on, the image is no longer just a document, but a georeferenced raster usable as geospatial support.
 
-#### 7.3 Flow 2: vectorisation
+#### 7.3 Flow 2: Vectorization
 
-La vectorisation est decomposee en plusieurs flows specialises selon le type d objet:
+Vectorization is decomposed into multiple specialized flows by object type:
 
-- lignes continues,
-- lignes pointillees,
-- polygones.
+- continuous lines,
+- dotted lines,
+- polygons.
 
-Cette decomposition correspond directement aux scripts prototypes du laboratoire, mais avec une execution orchestrable et un reporting de progression plus fin.
+This decomposition directly corresponds to laboratory prototype scripts, but with orchestrable execution and finer progress reporting.
 
-Le principe general reste le meme que dans les scripts experimentaux:
+The general principle remains the same as in experimental scripts:
 
-- classification couleur,
-- nettoyage morphologique,
-- extraction des composantes,
-- simplification geometrique,
-- export GeoJSON.
+- color classification,
+- morphological cleaning,
+- component extraction,
+- geometric simplification,
+- GeoJSON export.
 
-Cette phase concentre l essentiel de la charge compute. C est pourquoi elle est isolee dans le pipeline et ne doit pas etre executee dans une simple couche API synchrone.
+This phase concentrates most compute load. That is why it is isolated in the pipeline and should not run in a simple synchronous API layer.
 
-#### 7.4 Flow 3: nettoyage geometrique et gap filling
+#### 7.4 Flow 3: Geometric Cleaning and Gap Filling
 
-Les scripts de nettoyage du labo ont ete conserves comme logique de reference et transformes en etapes de pipeline dediees.
+Lab cleaning scripts have been retained as reference logic and transformed into dedicated pipeline steps.
 
-Le nettoyage joue un double role:
+Cleaning plays a dual role:
 
-- supprimer le bruit geometrique issu de la segmentation,
-- stabiliser les entites avant la visualisation et la validation.
+- remove geometric noise from segmentation,
+- stabilize entities before visualization and validation.
 
-La couche polygonale applique notamment:
+The polygon layer notably applies:
 
-- correction des geometries invalides,
-- suppression des entites vides,
-- filtrage par aire minimale,
-- revalidation apres nettoyage.
+- correction of invalid geometries,
+- removal of empty entities,
+- filtering by minimum area,
+- revalidation after cleaning.
 
-Le cas de la classe `water` est particulier, car il beneficie d un traitement de gap filling par operations de buffer positif puis negatif, afin de refermer les lacunes fines et de produire une geometrie plus continue.
+The `water` class case is particular, as it benefits from gap filling treatment via positive then negative buffer operations, to close fine gaps and produce more continuous geometry.
 
-Dans une architecture data-intensive, cette etape est importante: elle reduit les faux positifs visibles ensuite dans la validation et limite les corrections manuelles.
+In a data-intensive architecture, this step is important: it reduces false positives visible in later validation and limits manual corrections.
 
-#### 7.5 Flow 4: visualisation de controle
+#### 7.5 Flow 4: Control Visualization
 
-Les scripts de visualisation ne servent pas seulement a produire de jolies figures. Ils constituent un mecanisme de QA reproductible.
+Visualization scripts do not only serve to produce pretty figures. They constitute a reproducible QA mechanism.
 
-L idee est de rasteriser les sorties vectorielles dans un espace unique de classes, puis de generer pour chaque classe:
+The idea is to rasterize vector outputs in a unique class space, then generate for each class:
 
-- un masque,
-- un overlay sur l image de reference,
-- une sortie PNG dans le dossier de viz.
+- a mask,
+- an overlay on the reference image,
+- a PNG output in the viz folder.
 
 Cette approche permet de verifier tres vite si une classe a ete bien extraite, si elle est decalée, sur-segmentée ou absente. Techniquement, la generation d un raster de classes unique limite les couts de calcul par rapport a une rasterisation independante pour chaque couche.
 

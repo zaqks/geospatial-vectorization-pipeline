@@ -1,68 +1,68 @@
-## 2. Georeferencement (approche lab / scripts)
+## 2. Georeferencing (lab approach / scripts)
 
-### 2.1 Enjeu scientifique et technique
+### 2.1 Scientific and Technical Challenge
 
-Le georeferencement convertit une image raster "pixel" en couche spatialement exploitable dans un SIG. Dans le laboratoire, cette operation est realisee par le script `1_georef.py`.
+Georeferencing converts a "pixel" raster image into a spatially usable layer in a GIS. In the laboratory, this operation is performed by the `1_georef.py` script.
 
-Objectif concret:
+Concrete objective:
 
-* produire un GeoTIFF georeference a partir de l'image mosaiquee,
-* garantir une coherence de projection avec les traitements vectoriels ulterieurs.
+* produce a georeferenced GeoTIFF from the mosaicked image,
+* guarantee projection consistency with subsequent vectorization processes.
 
-### 2.2 Entrees
+### 2.2 Inputs
 
-Entrees principales:
+Main inputs:
 
-* image source: `data/el_harrach_highres_map.png`
-* bounding box geographique (lat/lon) de la zone cible, obtenue via le service de geocodage en amont
+* source image: `data/el_harrach_highres_map.png`
+* geographic bounding box (lat/lon) of the target area, obtained via geocoding service upstream
 
-Points de controle utilises:
+Control points used:
 
-* coin haut-gauche (top-left) de la bounding box,
-* coin bas-droit (bottom-right) de la bounding box
+* top-left corner of the bounding box,
+* bottom-right corner of the bounding box
 
-Ces deux points proviennent de donnees terrain issues du service de geocodage et correspondent a des coordonnees reelles, non hypothetiquees. La bounding box est suffisamment precise pour definir exactement l'emprise spatiale de l'image.
+These two points come from ground truth data from the geocoding service and correspond to real coordinates, not hypothetical ones. The bounding box is precise enough to define exactly the spatial extent of the image.
 
-Etant donne que la zone est representee par une emprise strictement rectangulaire, ces deux points suffisent a reconstruire l'ensemble de la transformation. L'utilisation de quatre points n'apporterait aucune difference dans le resultat final, car les coins restants sont mathematiquement deduits de la meme bounding box.
+Since the area is represented by a strictly rectangular extent, these two points are sufficient to reconstruct the entire transformation. Using four points would make no difference in the final result, as the remaining corners are mathematically derived from the same bounding box.
 
-* l'image issue du stitching est deja alignee sans deformation locale complexe,
-* une transformation affine suffit pour passer de l'espace image a l'espace geographique,
-* la bounding box fournie est parfaitement coherente avec l'image (alignement exact sans offset).
+* the stitched image is already aligned without complex local deformation,
+* an affine transformation is sufficient to move from image space to geographic space,
+* the provided bounding box is perfectly consistent with the image (exact alignment with no offset).
 
-### 2.3 Systeme de reference spatial
+### 2.3 Spatial Reference System
 
-Le script applique une conversion explicite vers Web Mercator (EPSG:3857):
+The script applies an explicit conversion to Web Mercator (EPSG:3857):
 
-1. conversion longitude -> X metrique,
-2. conversion latitude -> Y metrique,
-3. construction de l'emprise metrique `[min_x, min_y, max_x, max_y]`.
+1. longitude conversion -> metric X,
+2. latitude conversion -> metric Y,
+3. construction of metric extent `[min_x, min_y, max_x, max_y]`.
 
-Formulation utilisee (rayon terrestre R = 6378137):
+Formulation used (Earth radius R = 6378137):
 
 $$
 X = R \cdot \text{rad}(\lambda), \quad
 Y = R \cdot \ln\left(\tan\left(\frac{\pi}{4} + \frac{\text{rad}(\varphi)}{2}\right)\right)
 $$
 
-Le choix EPSG:3857 est coherent avec l'origine web des tuiles raster.
+The EPSG:3857 choice is consistent with the web origin of raster tiles.
 
-### 2.4 Construction de la transformee affine
+### 2.4 Construction of Affine Transform
 
-La transformee est calculee via `rasterio.from_bounds` a partir:
+The transform is calculated via `rasterio.from_bounds` from:
 
-* des bornes metriques derivees de la bounding box,
-* de la largeur et de la hauteur reelles de l'image.
+* metric bounds derived from the bounding box,
+* the actual width and height of the image.
 
-Les deux points de controle (top-left et bottom-right) definissent integralement et de facon unique cette emprise. Dans le cas present, ils sont suffisants et equivalents a une configuration a quatre points, puisque la geometrie est strictement rectangulaire et parfaitement definie par la bounding box terrain.
+The two control points (top-left and bottom-right) fully and uniquely define this extent. In this case, they are sufficient and equivalent to a four-point configuration, since the geometry is strictly rectangular and perfectly defined by the ground bounding box.
 
-La transformation affine en decoule directement, en assurant la correspondance:
+The affine transformation is derived directly, ensuring correspondence:
 
-* pixel (0, 0) -> coin haut-gauche,
-* pixel (width, height) -> coin bas-droit.
+* pixel (0, 0) -> top-left corner,
+* pixel (width, height) -> bottom-right corner.
 
-Cette operation lie chaque pixel (colonne, ligne) a une coordonnee projetee continue.
+This operation ties each pixel (column, row) to a continuous projected coordinate.
 
-Extrait minimal (depuis lab/1_georef.py):
+Minimal excerpt (from lab/1_georef.py):
 
 ```py
 transform = from_bounds(
@@ -72,20 +72,20 @@ transform = from_bounds(
 )
 ```
 
-### 2.5 Ecriture du GeoTIFF optimise
+### 2.5 Writing Optimized GeoTIFF
 
-Le script ecrit `data/el_harrach_georef.tif` avec les options suivantes:
+The script writes `data/el_harrach_georef.tif` with the following options:
 
-* driver GTiff,
-* 3 bandes RGB,
+* GTiff driver,
+* 3 RGB bands,
 * crs = EPSG:3857,
-* compression DEFLATE,
+* DEFLATE compression,
 * predictor = 2,
-* tuilage interne 256x256.
+* internal tiling 256x256.
 
-Ces parametres reduisent le volume disque et accelerent les lectures fenetrees lors des etapes de segmentation/vectorisation.
+These parameters reduce disk volume and accelerate windowed reads during segmentation/vectorization steps.
 
-Extrait minimal (ecriture GeoTIFF):
+Minimal excerpt (GeoTIFF writing):
 
 ```py
 with rasterio.open(output_tif, "w", driver="GTiff", crs="EPSG:3857", transform=transform) as dst:
@@ -94,39 +94,39 @@ with rasterio.open(output_tif, "w", driver="GTiff", crs="EPSG:3857", transform=t
 	dst.write(img_np[:, :, 2], 3)
 ```
 
-### 2.6 Validation effectuee en laboratoire
+### 2.6 Validation Performed in Lab
 
-Verifications typiques:
+Typical verifications:
 
-* ouverture du GeoTIFF dans QGIS/ArcGIS,
-* controle visuel de l'alignement avec des fonds de reference,
-* verification des metadonnees CRS et emprise.
+* opening the GeoTIFF in QGIS/ArcGIS,
+* visual control of alignment with reference basemaps,
+* verification of CRS and extent metadata.
 
-Le passage en EPSG:3857 est ensuite impose comme precondition dans plusieurs scripts aval (vectorisation, nettoyage, visualisation).
+The conversion to EPSG:3857 is then imposed as a precondition in several downstream scripts (vectorization, cleaning, visualization).
 
-### 2.7 Sorties et impact sur le pipeline experimental
+### 2.7 Outputs and Impact on Experimental Pipeline
 
-Sortie principale:
+Main output:
 
 * `data/el_harrach_georef.tif`
 
-Ce fichier devient l'entree unique de la chaine de vectorisation:
+This file becomes the single input to the vectorization chain:
 
-* extraction des classes polygones,
-* extraction des classes lineaires,
-* nettoyage geometrique,
-* production de masques de visualisation.
+* extraction of polygon classes,
+* extraction of linear classes,
+* geometric cleaning,
+* visualization mask production.
 
 ### 2.8 Conclusion
 
-* la precision depend directement de la qualite de la bounding box d'entree, issue de donnees terrain fiables,
-* deux points de controle (coins opposes) sont suffisants car l'emprise est strictement rectangulaire et parfaitement connue,
-* le resultat obtenu est equivalent a une configuration a quatre points dans ce cas particulier,
-* approximation inherente a la projection Mercator (distorsions surfaciques),
-* absence de points de controle terrain supplementaires (GCP) n'affecte pas la precision globale dans ce contexte specifique.
+* precision directly depends on the quality of the input bounding box, from reliable ground data,
+* two control points (opposite corners) are sufficient because the extent is strictly rectangular and perfectly known,
+* the result obtained is equivalent to a four-point configuration in this particular case,
+* approximation inherent to Mercator projection (area distortions),
+* absence of additional ground control points (GCP) does not affect overall precision in this specific context.
 
-### 2.9 Figure de verification QGIS
+### 2.9 QGIS Verification Figure
 
-Figure 2 - Premiere verification de la vectorisation et du georeferencement dans QGIS
+Figure 2 - First verification of vectorization and georeferencing in QGIS
 
-<img src="images/scripts/1_qgis_georef_check_poly.png" alt="Verification QGIS georef et vectorisation" width="100%">
+<img src="images/scripts/1_qgis_georef_check_poly.png" alt="QGIS georef and vectorization verification" width="100%">

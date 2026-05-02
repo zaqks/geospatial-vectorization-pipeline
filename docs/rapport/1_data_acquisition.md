@@ -1,51 +1,51 @@
-## 1. Acquisition des donnees (approche lab / scripts)
+## 1. Data Acquisition (lab approach / scripts)
 
-### 1.1 Objectif de l'etape
+### 1.1 Step Objective
 
-L'objectif de cette phase est de telecharger une carte scannee, couvrant la commune cible, avec un niveau de detail suffisant pour permettre une vectorisation par couleur. Dans le dossier lab, cette etape est principalement implemente par:
+The goal of this phase is to download a scanned map covering the target municipality with sufficient detail level to allow color-based vectorization. In the lab folder, this step is mainly implemented by:
 
 - 0_data.py
 - 0_legend_extract.py
 - 0_legend_overlay_poly.py
 - 0_legend_overlay_line.py
 
-Cette phase comprend deux volets:
+This phase comprises two aspects:
 
-1. acquisition spatiale (telechargement et assemblage des tuiles raster),
-2. acquisition semantique (construction de la table de legendes et verification visuelle des classes).
+1. spatial acquisition (downloading and assembling raster tiles),
+2. semantic acquisition (building the legend table and visual verification of classes).
 
-### 1.2 Delimitation spatiale de la zone d'etude
+### 1.2 Spatial Delimitation of Study Area
 
-Le script 0_data.py utilise Nominatim (via geopy) pour geocoder la commune "El Harrach, Algeria" et recuperer automatiquement une bounding box (sud, nord, ouest, est).
+The 0_data.py script uses Nominatim (via geopy) to geocode the municipality "El Harrach, Algeria" and automatically retrieve a bounding box (south, north, west, east).
 
-Hypothese retenue en laboratoire:
+Assumptions retained in the lab:
 
-- la bounding box Nominatim est suffisamment proche de l'emprise utile,
-- un padding est ajoute pour eviter de couper les entites en bord de zone.
+- the Nominatim bounding box is sufficiently close to the useful extent,
+- padding is added to avoid cutting features at zone edges.
 
-Parametres techniques importants:
+Important technical parameters:
 
 - ZOOM = 18
 - TILE_SIZE = 256
 - padding = 1
 
-Le niveau z18 fournit une resolution detaillee (compromis entre precision et volume de donnees).
+Zoom level z18 provides detailed resolution (trade-off between precision and data volume).
 
-### 1.3 Conversion geographique vers grille de tuiles
+### 1.3 Geographic to Tile Grid Conversion
 
-Le script implemente:
+The script implements:
 
 - latlon_to_tile(lat, lon, zoom)
 - tile_to_latlon(x, y, zoom)
 
-Ces fonctions assurent le passage entre:
+These functions ensure conversion between:
 
-- coordonnees geographiques (WGS84, lat/lon),
-- index de tuiles web (x, y, z) en projection Web Mercator.
+- geographic coordinates (WGS84, lat/lon),
+- web tile indices (x, y, z) in Web Mercator projection.
 
-Cette conversion est fondamentale pour savoir exactement quelles tuiles telecharger et pour calculer ensuite l'emprise reelle de l'image mosaiquee.
+This conversion is fundamental to know exactly which tiles to download and to calculate the actual extent of the mosaicked image.
 
-Extrait minimal (depuis lab/0_data.py):
+Minimal excerpt (from lab/0_data.py):
 
 ```py
 def latlon_to_tile(lat, lon, zoom):
@@ -56,19 +56,19 @@ def latlon_to_tile(lat, lon, zoom):
 	return x, y
 ```
 
-### 1.4 Telechargement, cache local et assemblage
+### 1.4 Downloading, Local Cache and Assembly
 
-Les tuiles sont recuperees depuis Carto basemaps (style voyager_nolabels) puis stockees dans un cache local:
+Tiles are retrieved from Carto basemaps (voyager_nolabels style) and stored in a local cache:
 
 - data/tiles/18/x_y.png
 
-Le cache permet:
+The cache allows:
 
-- la reproductibilite des essais,
-- la reduction des requetes reseau,
-- l'acceleration des relances de pipeline experimental.
+- reproducibility of tests,
+- reduction of network requests,
+- acceleration of experimental pipeline reruns.
 
-Extrait minimal (cache + telechargement):
+Minimal excerpt (cache + downloading):
 
 ```py
 tile_path = f"{cache_dir}/{x}_{y}.png"
@@ -78,67 +78,67 @@ else:
 	r = requests.get(url, headers=headers, timeout=10)
 ```
 
-Apres telechargement, les tuiles sont "stitch" dans une image unique:
+After downloading, tiles are "stitched" into a single image:
 
-- sortie: data/el_harrach_highres_map.png
+- output: data/el_harrach_highres_map.png
 
-Le script calcule aussi l'emprise finale de la mosaique (north/south/west/east), ce qui facilite la verification geometrique en amont du georeferencement.
+The script also calculates the final extent of the mosaic (north/south/west/east), which facilitates geometric verification prior to georeferencing.
 
-### 1.5 Extraction de la signature colorimetrique
+### 1.5 Color Signature Extraction
 
-Le script 0_legend_extract.py effectue une analyse des couleurs de l'image complete:
+The 0_legend_extract.py script performs color analysis of the complete image:
 
-- lecture de l'image RGB,
-- aplatissement des pixels,
-- aggregation des occurrences par triplet (r, g, b) avec Polars,
-- calcul des pourcentages d'apparition,
-- export des classes dominantes vers data/legend.csv.
+- reading the RGB image,
+- flattening pixels,
+- aggregating occurrences by triplet (r, g, b) with Polars,
+- calculating appearance percentages,
+- exporting dominant classes to data/legend.csv.
 
-Seuil applique dans l'export:
+Threshold applied in the export:
 
-- seules les couleurs >= 0.1% sont conservees.
+- only colors >= 0.1% are retained.
 
-Interet de cette etape:
+Significance of this step:
 
-- identifier les teintes predominantes avant segmentation,
-- detecter les classes rares ou bruites,
-- preparer un referentiel de classes exploitable dans les scripts de vectorisation.
+- identify dominant hues before segmentation,
+- detect rare or noisy classes,
+- prepare a class reference usable in vectorization scripts.
 
-### 1.6 Verification visuelle de la legende
+### 1.6 Visual Verification of Legend
 
-Les scripts d'overlay (0_legend_overlay_poly.py, 0_legend_overlay_line.py) appliquent un masquage couleur par classe issue de legend_class_geo.csv.
+The overlay scripts (0_legend_overlay_poly.py, 0_legend_overlay_line.py) apply color masking by class from legend_class_geo.csv.
 
-Principe:
+Principle:
 
-1. conversion hex -> BGR,
-2. detection des pixels cibles avec tolerance (souvent 1),
-3. generation d'une image de controle ou les pixels detectes sont peints en rouge,
-4. export classe par classe dans output/overlays.
+1. hex to BGR conversion,
+2. detection of target pixels with tolerance (often 1),
+3. generation of a control image where detected pixels are painted red,
+4. export class by class in output/overlays.
 
-Pour les lignes, un pretraitement morphologique (closing et dilatation) est ajoute afin de rendre visuellement lisibles des motifs lineaires fins.
+For lines, morphological preprocessing (closing and dilation) is added to make fine linear patterns visually legible.
 
-### 1.7 Sorties et artefacts de la phase acquisition
+### 1.7 Outputs and Artifacts of Acquisition Phase
 
-Produits principaux:
+Main products:
 
-- raster de base: data/el_harrach_highres_map.png
-- table de couleurs dominantes: data/legend.csv
-- table metier des classes: data/legend_class_geo.csv (on rajoute le colonnes geomerty & z-index)
-- overlays de controle: output/overlays/poly/*.png et output/overlays/line/*.png
+- base raster: data/el_harrach_highres_map.png
+- table of dominant colors: data/legend.csv
+- business class table: data/legend_class_geo.csv (add geometry & z-index columns)
+- control overlays: output/overlays/poly/*.png and output/overlays/line/*.png
 
-Ces artefacts alimentent directement les etapes suivantes (georeferencement et vectorisation).
+These artifacts directly feed into the following steps (georeferencing and vectorization).
 
 ### 1.8 Conclusion
 
-- dependance a la qualite des couleurs source (compression, aliasing, variations locales),
-- forte sensibilite du masquage a la tolerance choisie,
-- risque de confusion entre classes chromatiquement proches,
-- extraction des classes semantiques encore semi-supervisee (table de legende maintenue manuellement).
+- dependence on source color quality (compression, aliasing, local variations),
+- strong sensitivity of masking to chosen tolerance,
+- risk of confusion between chromatically close classes,
+- extraction of semantic classes still semi-supervised (legend table maintained manually).
 
-Malgre ces limites, la phase d'acquisition fournit une base experimentale robuste pour la chaine geospatiale ulterieure.
+Despite these limitations, the acquisition phase provides a robust experimental basis for the subsequent geospatial chain.
 
-### 1.9 Figures (captures scripts)
+### 1.9 Figures (script captures)
 
-Figure 1 - Telechargement de la carte haute resolution (input)
+Figure 1 - High resolution map download (input)
 
-<img src="images/scripts/0_input.png" alt="Telechargement carte haute resolution" width="100%">
+<img src="images/scripts/0_input.png" alt="High resolution map download" width="100%">

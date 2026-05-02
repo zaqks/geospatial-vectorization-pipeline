@@ -1,59 +1,59 @@
-## 4. Validation topologique (approche lab / scripts)
+## 4. Topological Validation (lab approach / scripts)
 
-### 4.1 Objectif
+### 4.1 Objective
 
-La validation topologique vise a detecter les incoherences geometriques et semantiques dans les couches vectorielles produites. Elle intervient apres les phases de vectorisation, de nettoyage geometrique et de visualisation de controle. Le script principal est 7_validation_topo.py.
+Topological validation aims to detect geometric and semantic inconsistencies in produced vector layers. It occurs after vectorization, geometric cleaning, and control visualization phases. The main script is 7_validation_topo.py.
 
-L'approche adoptee est une validation par regles d'intersection entre classes.
+The approach adopted is validation through intersection rules between classes.
 
-### 4.2 Strategie de controle
+### 4.2 Control Strategy
 
-Le script charge plusieurs couches (lignes et polygones), applique un nettoyage de base (geometries valides, non vides), puis execute des tests spatiaux via indexation spatiale.
+The script loads multiple layers (lines and polygons), applies basic cleaning (valid, non-empty geometries), then executes spatial tests via spatial indexing.
 
-Fonction centrale:
+Central function:
 
 - find_intersections(a, b)
 
-Cette fonction:
+This function:
 
-1. construit l'index spatial de la couche b,
-2. recherche les candidats par emprise (bounding boxes),
-3. teste l'intersection geometrique exacte,
-4. collecte les geometries conflictuelles.
+1. builds spatial index of layer b,
+2. searches candidates by extent (bounding boxes),
+3. tests exact geometric intersection,
+4. collects conflicting geometries.
 
-### 4.3 Regles de validation implementees
+### 4.3 Implemented Validation Rules
 
-Les verifications explicites du script couvrent notamment:
+Explicit checks in the script cover notably:
 
-- batiments intersectant l'eau,
-- batiments intersectant le reseau routier,
-- incoherences entre hierarchies routieres,
-- zones residentielles intersectant l'eau,
-- conflits metro vs batiments / eau.
+- buildings intersecting water,
+- buildings intersecting road network,
+- inconsistencies between road hierarchies,
+- residential zones intersecting water,
+- metro conflicts vs buildings / water.
 
-Le script exporte ensuite des couches d'erreurs en GeoJSON (errors_*.geojson) pour audit cartographique.
+The script then exports error layers as GeoJSON (errors_*.geojson) for cartographic audit.
 
-Ces conflits ne sont pas seulement detectes: ils servent aussi de base a une phase de nettoyage et de resolution contextuelle. L'idee est de conserver la classe la plus pertinente selon le contexte cartographique. Par exemple, en cas de chevauchement entre une route et un batiment, on privilegie la route et on ajuste ou retire la geometrie du batiment sur la zone de conflit.
+These conflicts are not only detected: they also serve as basis for a cleaning and contextual resolution phase. The idea is to retain the most relevant class according to cartographic context. For example, in case of overlap between a road and a building, priority is given to the road and the building geometry is adjusted or removed in the conflict zone.
 
-### 4.4 Interet methodologique
+### 4.4 Methodological Interest
 
-Cette approche permet:
+This approach enables:
 
-- une validation reproductible et scriptable,
-- une separation claire entre detection et correction,
-- une exploitation facile des erreurs dans un SIG pour revue experte.
+- reproducible and scriptable validation,
+- clear separation between detection and correction,
+- easy exploitation of errors in a GIS for expert review.
 
-Dans un contexte academique, cela formalise des contraintes metier sous forme de regles calculables.
+In an academic context, this formalizes business constraints as calculable rules.
 
-### 4.5 Conclusion section lab
+### 4.5 Lab Section Conclusion
 
-Le travail laboratoire fournit une base complete:
+The laboratory work provides a complete foundation:
 
-- extraction raster et legende,
-- georeferencement,
-- vectorisation multi-geometries,
-- nettoyage,
-- visualisation de controle,
-- debut de validation topologique.
+- raster extraction and legend,
+- georeferencing,
+- multi-geometry vectorization,
+- cleaning,
+- control visualization,
+- beginning of topological validation.
 
-La valeur principale de cette phase est d'avoir transforme une demarche exploratoire en briques algorithmiques reemployables dans la version pipeline.
+The main value of this phase is having transformed exploratory work into reusable algorithmic building blocks for the pipeline version.

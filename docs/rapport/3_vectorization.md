@@ -1,8 +1,8 @@
-## 3. Vectorisation et post-traitement (approche lab / scripts)
+## 3. Vectorization and Post-Processing (lab approach / scripts)
 
-### 3.1 Principe general
+### 3.1 General Principle
 
-La vectorisation transforme des motifs raster en objets geometriques (LineString, Polygon) classes semantiquement. Dans le laboratoire, cette phase est distribuee sur plusieurs scripts:
+Vectorization transforms raster patterns into semantically classified geometric objects (LineString, Polygon). In the laboratory, this phase is distributed across several scripts:
 
 - 2_vectorization_line.py
 - 2_vectorization_dotted.py
@@ -10,38 +10,38 @@ La vectorisation transforme des motifs raster en objets geometriques (LineString
 - 3_clean_noise_poly.py
 - 3_clean_gapfill.py
 
-Le referentiel de classes est fourni par data/legend_class_geo.csv.
+The class reference is provided by data/legend_class_geo.csv.
 
-### 3.2 Vectorisation des polygones
+### 3.2 Polygon Vectorization
 
-Le script 2_vectorization_poly.py suit une logique de classification exacte RGB:
+The 2_vectorization_poly.py script follows exact RGB classification logic:
 
-1. lecture du raster georeference,
-2. construction d'une table couleur -> classe,
-3. encodage des pixels (RGB -> index de classe),
-4. extraction des formes via rasterio.features.shapes,
-5. generation d'un GeoJSON par classe.
+1. reading the georeferenced raster,
+2. building a color -> class table,
+3. encoding pixels (RGB -> class index),
+4. extracting shapes via rasterio.features.shapes,
+5. generating GeoJSON per class.
 
-Points techniques:
+Technical points:
 
-- traitement sur les 3 bandes RGB,
-- classes sans correspondance ignorees (label = -1),
-- export par classe dans output/vect/poly.
+- processing on 3 RGB bands,
+- unmatched classes ignored (label = -1),
+- export per class in output/vect/poly.
 
-Ce choix est efficace lorsque la cartographie source utilise des couleurs plates stables.
+This choice is efficient when the source map uses stable flat colors.
 
-### 3.3 Vectorisation des lignes continues
+### 3.3 Continuous Line Vectorization
 
-Le script 2_vectorization_line.py traite les classes lineaires hors railway:
+The 2_vectorization_line.py script handles linear classes except railway:
 
-1. masquage couleur avec tolerance,
-2. fermeture morphologique (closing) pour reconnecter les ruptures mineures,
-3. suppression des objets trop petits (seuil en m2 converti en pixels),
-4. skeletonization (axe median),
-5. conversion en geometries lineaires,
-6. simplification et filtrage par longueur minimale.
+1. color masking with tolerance,
+2. morphological closing to reconnect minor breaks,
+3. removal of too-small objects (threshold in m2 converted to pixels),
+4. skeletonization (medial axis),
+5. conversion to linear geometries,
+6. simplification and filtering by minimum length.
 
-Parametres structurants:
+Structuring parameters:
 
 - COLOR_TOLERANCE,
 - CLOSING_RADIUS,
@@ -49,77 +49,77 @@ Parametres structurants:
 - MIN_LINE_LENGTH,
 - SIMPLIFY_TOLERANCE.
 
-Ces parametres pilotent le compromis precision/robustesse.
+These parameters control the precision/robustness trade-off.
 
-### 3.4 Vectorisation des lignes pointillees (railway)
+### 3.4 Dotted Line Vectorization (railway)
 
-Le script 2_vectorization_dotted.py adresse explicitement la classe railway, plus difficile a extraire:
+The 2_vectorization_dotted.py script explicitly addresses the railway class, which is harder to extract:
 
-- masquage par intervalle de couleur (borne basse/haute),
-- ouverture + fermeture morphologique (denoising et bridge),
+- color interval masking (lower/upper bound),
+- morphological opening + closing (denoising and bridging),
 - skeletonization,
-- detection des endpoints,
-- reconnection des extremites proches via KDTree,
-- export GeoJSON lineaire.
+- endpoint detection,
+- reconnection of close endpoints via KDTree,
+- linear GeoJSON export.
 
-Cette methode est adaptee aux graphes discontinus et symboles pointilles.
+This method is adapted for discontinuous graphs and dotted symbols.
 
-### 3.5 Nettoyage geometrique des polygones
+### 3.5 Geometric Cleaning of Polygons
 
-Le script 3_clean_noise_poly.py applique un pipeline de sanitation:
+The 3_clean_noise_poly.py script applies a sanitation pipeline:
 
-- suppression des geometries nulles/vides,
-- correction de validite geometrique (make_valid),
-- explode des MultiPolygon,
-- filtrage sur type geometrique,
-- elimination des petites surfaces.
+- removal of null/empty geometries,
+- geometric validity correction (make_valid),
+- MultiPolygon explosion,
+- filtering on geometric type,
+- elimination of small areas.
 
-Objectif:
+Objective:
 
-- supprimer les artefacts issus du bruit raster,
-- conserver un schema geometrique plus stable pour l'analyse.
+- remove artifacts from raster noise,
+- maintain a more stable geometric schema for analysis.
 
-### 3.6 Gap filling cible sur la classe water
+### 3.6 Targeted Gap Filling on Water Class
 
-Le script 3_clean_gapfill.py realise un traitement specialise pour water:
+The 3_clean_gapfill.py script performs specialized treatment on water:
 
-1. union des objets,
-2. buffer positif puis buffer negatif (fermeture des trous fins),
-3. suppression des trous internes,
-4. simplification geometrique,
-5. re-export de la couche water.
+1. union of objects,
+2. positive buffer then negative buffer (closing fine gaps),
+3. removal of internal holes,
+4. geometric simplification,
+5. re-export of water layer.
 
-Ce traitement corrige les vides crees par du texte cartographique ou des interruptions de teinte.
+This treatment corrects voids created by map text or shade interruptions.
 
-### 3.7 Visualisation de controle (etape de validation visuelle)
+### 3.7 Control Visualization (visual validation step)
 
-Les scripts 6_viz_line.py et 6_viz_poly.py rasterisent toutes les classes et produisent:
+The 6_viz_line.py and 6_viz_poly.py scripts rasterize all classes and produce:
 
-- masques RGBA par classe,
-- overlays sur image de base.
+- RGBA masks per class,
+- overlays on base image.
 
-Une optimisation notable est deja presente:
+A notable optimization is already present:
 
-- raster unique de classes (uint16) puis extraction de chaque masque par comparaison numpy.
+- unique class raster (uint16) then extraction of each mask by numpy comparison.
 
-### 3.8 Sorties vectorielles
+### 3.8 Vectorial Outputs
 
-Repertoire principal:
+Main directory:
 
 - output/vect/poly/*.geojson
 - output/vect/line/*.geojson
 
-Sorties complementaires:
+Supplementary outputs:
 
-- PNG de debug/overlay pour inspection qualitative.
+- PNG debug/overlay for qualitative inspection.
 
-Ces sorties sont ensuite reprises par l'etape de nettoyage et de visualisation de controle, documentee dans le chapitre suivant, avant d'entrer dans la validation topologique.
+These outputs are then taken up by the cleaning and control visualization step, documented in the next chapter, before entering topological validation.
 
 ### 3.9 Conclusion
 
-- sensibilite aux collisions chromatiques entre classes,
-- risque de sur-segmentation des bords,
-- nettoyage encore heuristique (parametres a calibrer selon zone et style cartographique),
-- methodes basees couleur peu robustes aux changements de style de carte.
+- sensitivity to chromatic collisions between classes,
+- risk of edge over-segmentation,
+- cleaning still heuristic (parameters to calibrate per zone and cartographic style),
+- color-based methods not robust to map style changes.
 
-La chaine lab est suffisamment mature pour produire une BDG exploitable et robuste pour la suite des controles topologiques.
+The lab chain is mature enough to produce an exploitable and robust database for subsequent topological controls.
